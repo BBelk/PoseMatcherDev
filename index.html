@@ -2,16 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>PoseMatcher</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>PoseMatcher</h1>
-  <p>Pose matching app — coming soon.</p>
 
-  <!-- OpenCV.js loaded from CDN -->
-  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady()"></script>
+  <section id="reference-section">
+    <h2>Reference Pose</h2>
+    <div id="reference-box">
+      <div id="upload-prompt">
+        <p>Tap or drag an image here</p>
+        <label id="upload-label" for="file-input">Choose Image</label>
+        <input type="file" id="file-input" accept="image/*">
+      </div>
+      <img id="reference-img" alt="Reference pose">
+      <button id="clear-btn" title="Clear image">&times;</button>
+    </div>
+  </section>
+
   <script src="index.js"></script>
 </body>
 </html>
