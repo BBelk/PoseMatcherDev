@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm init:*)"
+      "Bash(npm init:*)",
+      "Bash(npm view:*)",
+      "WebSearch"
     ]
   }
 }

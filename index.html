@@ -11,17 +11,31 @@
 
   <section id="reference-section">
     <h2>Reference Pose</h2>
-    <div id="reference-box">
+    <div id="reference-box" class="pose-box">
       <div id="upload-prompt">
         <p>Tap or drag an image here</p>
         <label id="upload-label" for="file-input">Choose Image</label>
         <input type="file" id="file-input" accept="image/*">
       </div>
       <img id="reference-img" alt="Reference pose">
+      <canvas id="pose-canvas"></canvas>
+      <div id="pose-status" class="status"></div>
       <button id="clear-btn" title="Clear image">&times;</button>
     </div>
   </section>
 
+  <section id="camera-section">
+    <h2>Live Camera</h2>
+    <div id="camera-box" class="pose-box">
+      <video id="live-video" playsinline autoplay muted></video>
+      <canvas id="live-canvas"></canvas>
+      <div id="camera-status" class="status"></div>
+    </div>
+    <button id="camera-btn">Start Camera</button>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
+  <script src="pose.js"></script>
   <script src="index.js"></script>
 </body>
 </html>
