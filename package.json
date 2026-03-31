@@ -1,0 +1,20 @@
+{
+  "name": "posematcherdev",
+  "version": "1.0.0",
+  "description": "Browser-based pose matching app using OpenCV.js and pose detection models",
+  "main": "index.js",
+  "scripts": {
+    "start": "npx serve ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BBelk/PoseMatcherDev.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BBelk/PoseMatcherDev/issues"
+  },
+  "homepage": "https://github.com/BBelk/PoseMatcherDev#readme"
+}
