@@ -11,6 +11,23 @@ const liveCanvas = document.getElementById('live-canvas');
 const cameraStatus = document.getElementById('camera-status');
 const cameraBtn = document.getElementById('camera-btn');
 
+// ========== SETTINGS ==========
+
+const scoreThreshSlider = document.getElementById('score-thresh');
+const scoreThreshVal = document.getElementById('score-thresh-val');
+const kpThreshSlider = document.getElementById('kp-thresh');
+const kpThreshVal = document.getElementById('kp-thresh-val');
+
+scoreThreshSlider.addEventListener('input', () => {
+  POSE_CONFIG.scoreThreshold = parseFloat(scoreThreshSlider.value);
+  scoreThreshVal.textContent = scoreThreshSlider.value;
+});
+
+kpThreshSlider.addEventListener('input', () => {
+  POSE_CONFIG.confidenceThreshold = parseFloat(kpThreshSlider.value);
+  kpThreshVal.textContent = kpThreshSlider.value;
+});
+
 // ========== REFERENCE IMAGE ==========
 
 fileInput.addEventListener('change', (e) => {
@@ -150,11 +167,17 @@ function cameraLoop() {
     liveCanvas.height = cameraBox.clientHeight;
 
     estimatePoses(liveVideo).then(poses => {
+      // Flip x to match the mirrored video display
+      for (const pose of poses) {
+        for (const kp of pose.keypoints) kp.x = 1 - kp.x;
+      }
       const rect = getDisplayRect(liveVideo.videoWidth, liveVideo.videoHeight, cameraBox);
       drawPoses(liveCanvas, poses, rect);
+      cameraStatus.textContent = poses.length + ' person' + (poses.length !== 1 ? 's' : '');
       inferring = false;
     }).catch(err => {
       console.error('Live pose error:', err);
+      cameraStatus.textContent = 'Error: ' + err.message;
       inferring = false;
     });
   }

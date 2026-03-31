@@ -185,11 +185,42 @@ section h2 {
   height: 100%;
   object-fit: contain;
   display: none;
+  transform: scaleX(-1);
 }
 
 #camera-box.active #live-video {
   display: block;
 }
+
+/* --- Settings --- */
+
+.setting {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.setting label {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.setting input[type="range"] {
+  width: 120px;
+  accent-color: #6cf;
+}
+
+.setting span {
+  font-size: 0.85rem;
+  color: #ccc;
+  min-width: 2.5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Camera button --- */
 
 #camera-btn {
   display: block;

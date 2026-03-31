@@ -1,12 +1,10 @@
 // --- Pose estimation via ONNX Runtime Web (RTMO multi-person) ---
 
 const POSE_CONFIG = {
-  modelPath: 'models/rtmo-s.onnx',
-  inputSize: 640,
-  mean: [123.675, 116.28, 103.53],
-  std: [58.395, 57.12, 57.375],
-  confidenceThreshold: 0.3,
-  scoreThreshold: 0.3,
+  modelPath: 'models/rtmo-t.onnx',
+  inputSize: 416,
+  confidenceThreshold: 0.3,             // per-keypoint: hide joints below this
+  scoreThreshold: 0.3,                  // per-person: drop detections below this
 };
 
 const COCO_KEYPOINTS = [
@@ -36,6 +34,8 @@ async function loadPoseModel() {
   if (poseSession) return poseSession;
 
   ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/';
+  ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
+  ort.env.wasm.simd = true;
 
   poseSession = await ort.InferenceSession.create(POSE_CONFIG.modelPath, {
     executionProviders: ['wasm'],
@@ -47,10 +47,10 @@ async function loadPoseModel() {
   return poseSession;
 }
 
-// --- Preprocessing (letterbox, works with img or video) ---
+// --- Preprocessing (RTMO: top-left letterbox, pad 114, raw 0-255 float32) ---
 
 function preprocessSource(source) {
-  const { inputSize: s, mean, std } = POSE_CONFIG;
+  const s = POSE_CONFIG.inputSize;
   const srcW = source.videoWidth || source.naturalWidth;
   const srcH = source.videoHeight || source.naturalHeight;
 
@@ -63,42 +63,45 @@ function preprocessSource(source) {
 
   const ctx = _prepCtx;
 
-  // Fill with mean color for padding
-  ctx.fillStyle = `rgb(${Math.round(mean[0])},${Math.round(mean[1])},${Math.round(mean[2])})`;
+  // Pad with gray 114 (RTMO/YOLO convention)
+  ctx.fillStyle = 'rgb(114,114,114)';
   ctx.fillRect(0, 0, s, s);
 
-  // Letterbox: scale to fit, center
-  const scale = Math.min(s / srcW, s / srcH);
-  const sw = srcW * scale;
-  const sh = srcH * scale;
-  const ox = (s - sw) / 2;
-  const oy = (s - sh) / 2;
-  ctx.drawImage(source, ox, oy, sw, sh);
+  // Resize maintaining aspect ratio, place at TOP-LEFT (not centered)
+  const ratio = Math.min(s / srcW, s / srcH);
+  const rw = Math.round(srcW * ratio);
+  const rh = Math.round(srcH * ratio);
+  ctx.drawImage(source, 0, 0, rw, rh);
 
-  // Store for coordinate reversal
-  POSE_CONFIG._letterbox = { ox, oy, sw, sh };
+  // Store ratio and source dims for coordinate mapping
+  POSE_CONFIG._ratio = ratio;
+  POSE_CONFIG._srcW = srcW;
+  POSE_CONFIG._srcH = srcH;
 
   const { data } = ctx.getImageData(0, 0, s, s);
   const px = s * s;
   const f = new Float32Array(3 * px);
 
+  // Raw 0-255 float32, no mean/std normalization
   for (let i = 0; i < px; i++) {
-    f[i]          = (data[i * 4]     - mean[0]) / std[0];
-    f[px + i]     = (data[i * 4 + 1] - mean[1]) / std[1];
-    f[2 * px + i] = (data[i * 4 + 2] - mean[2]) / std[2];
+    f[i]          = data[i * 4];
+    f[px + i]     = data[i * 4 + 1];
+    f[2 * px + i] = data[i * 4 + 2];
   }
 
   return new ort.Tensor('float32', f, [1, 3, s, s]);
 }
 
-// --- Output decoding (multi-person, auto-detects format) ---
+// --- Output decoding (multi-person) ---
 
 function decodeMultiPose(results, session) {
   const names = session.outputNames;
-  const lb = POSE_CONFIG._letterbox;
+  const ratio = POSE_CONFIG._ratio;
+  const srcW = POSE_CONFIG._srcW;
+  const srcH = POSE_CONFIG._srcH;
   const thresh = POSE_CONFIG.scoreThreshold;
 
-  // Log output shapes once for debugging
+  // Log output shapes once
   if (!POSE_CONFIG._logged) {
     POSE_CONFIG._logged = true;
     for (const n of names) {
@@ -133,9 +136,10 @@ function decodeMultiPose(results, session) {
       const keypoints = [];
       for (let k = 0; k < 17; k++) {
         const b = i * 17 * 3 + k * 3;
+        // Coords are in input space, divide by ratio to get original pixels, then normalize 0-1
         keypoints.push({
-          x: (kd[b] - lb.ox) / lb.sw,
-          y: (kd[b + 1] - lb.oy) / lb.sh,
+          x: (kd[b] / ratio) / srcW,
+          y: (kd[b + 1] / ratio) / srcH,
           confidence: kd[b + 2],
           name: COCO_KEYPOINTS[k],
         });
@@ -159,8 +163,8 @@ function decodeMultiPose(results, session) {
       for (let k = 0; k < 17; k++) {
         const b = rowBase + 5 + k * 3;
         keypoints.push({
-          x: (d[b] - lb.ox) / lb.sw,
-          y: (d[b + 1] - lb.oy) / lb.sh,
+          x: (d[b] / ratio) / srcW,
+          y: (d[b + 1] / ratio) / srcH,
           confidence: d[b + 2],
           name: COCO_KEYPOINTS[k],
         });

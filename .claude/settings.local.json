@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm init:*)",
       "Bash(npm view:*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
