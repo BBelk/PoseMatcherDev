@@ -1,7 +1,7 @@
 # PoseMatcherDev
 
 ## Overview
-A browser-based pose matching application. Users load a reference pose image, then use their camera (or upload another image) to match the pose. The app overlays detected poses and scores how well they align.
+A browser-based pose matching application. Users upload two images — a reference pose and a comparison image — and the app detects poses in both, overlays skeletons, and compares them. Strict image-to-image comparison, no live camera.
 
 ## Tech Stack
 - **Runtime**: Browser (must deploy to GitHub Pages as a static site)

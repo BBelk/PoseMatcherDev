@@ -9,30 +9,61 @@
 <body>
   <h1>PoseMatcher</h1>
 
-  <section id="reference-section">
-    <h2>Reference Pose</h2>
-    <div id="reference-box" class="pose-box">
-      <div id="upload-prompt">
-        <p>Tap or drag an image here</p>
-        <label id="upload-label" for="file-input">Choose Image</label>
-        <input type="file" id="file-input" accept="image/*">
+  <div id="boxes-row">
+    <section id="reference-section">
+      <h2>Reference Pose</h2>
+      <div id="reference-box" class="pose-box">
+        <div class="upload-prompt" data-for="ref-file">
+          <p>Tap or drag an image here</p>
+          <label class="upload-label" for="ref-file">Choose Image</label>
+          <input type="file" id="ref-file" class="file-input" accept="image/*">
+        </div>
+        <img id="ref-img" class="pose-img" alt="Reference pose">
+        <canvas id="ref-canvas"></canvas>
+        <div id="ref-status" class="status"></div>
+        <button class="clear-btn" title="Clear image">&times;</button>
       </div>
-      <img id="reference-img" alt="Reference pose">
-      <canvas id="pose-canvas"></canvas>
-      <div id="pose-status" class="status"></div>
-      <button id="clear-btn" title="Clear image">&times;</button>
-    </div>
-  </section>
+    </section>
 
-  <section id="camera-section">
-    <h2>Live Camera</h2>
-    <div id="camera-box" class="pose-box">
-      <video id="live-video" playsinline autoplay muted></video>
-      <canvas id="live-canvas"></canvas>
-      <div id="camera-status" class="status"></div>
-    </div>
-    <button id="camera-btn">Start Camera</button>
-  </section>
+    <section id="compare-section">
+      <h2>Comparison</h2>
+      <div id="compare-box" class="pose-box">
+        <div class="upload-prompt" data-for="cmp-file">
+          <p>Tap or drag an image here</p>
+          <label class="upload-label" for="cmp-file">Choose Image</label>
+          <input type="file" id="cmp-file" class="file-input" accept="image/*">
+        </div>
+        <img id="cmp-img" class="pose-img" alt="Comparison pose">
+        <canvas id="cmp-canvas"></canvas>
+        <div id="cmp-status" class="status"></div>
+        <button class="clear-btn" title="Clear image">&times;</button>
+      </div>
+    </section>
+
+    <section id="overlay-section">
+      <h2>Overlay</h2>
+      <div id="overlay-box" class="pose-box">
+        <canvas id="overlay-canvas"></canvas>
+        <div id="overlay-status" class="status"></div>
+      </div>
+      <button id="overlay-btn">Overlay</button>
+      <div class="setting">
+        <label for="ref-alpha">Reference alpha</label>
+        <input type="range" id="ref-alpha" min="0" max="1" step="0.05" value="0.5">
+        <span id="ref-alpha-val">0.5</span>
+      </div>
+      <div class="setting">
+        <label for="cmp-alpha">Comparison alpha</label>
+        <input type="range" id="cmp-alpha" min="0" max="1" step="0.05" value="0.5">
+        <span id="cmp-alpha-val">0.5</span>
+      </div>
+      <div id="align-options">
+        <label><input type="radio" name="align" value="head" checked> Head</label>
+        <label><input type="radio" name="align" value="shoulders"> Shoulders</label>
+        <label><input type="radio" name="align" value="hips"> Hips</label>
+      </div>
+    </section>
+  </div>
 
   <section id="settings-section">
     <h2>Settings</h2>

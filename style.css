@@ -21,19 +21,36 @@ h1 {
   letter-spacing: 0.02em;
 }
 
-/* --- Shared section styles --- */
+/* --- Horizontal row of boxes --- */
 
-section {
+#boxes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
   width: 100%;
+  max-width: 1500px;
+}
+
+#boxes-row > section {
+  flex: 1 1 300px;
   max-width: 480px;
   margin-bottom: 1.5rem;
 }
+
+/* --- Shared section styles --- */
 
 section h2 {
   font-size: 1rem;
   font-weight: 500;
   margin-bottom: 0.5rem;
   color: #aaa;
+}
+
+#settings-section {
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 1.5rem;
 }
 
 /* --- Shared box styles --- */
@@ -43,13 +60,24 @@ section h2 {
   width: 100%;
   max-height: 60vh;
   aspect-ratio: 3 / 4;
-  border: 2px solid #333;
+  border: 2px dashed #444;
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #1a1a1a;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.pose-box.dragover {
+  border-color: #6cf;
+  background: #1a2a2a;
+}
+
+.pose-box.has-image {
+  border-style: solid;
+  border-color: #333;
 }
 
 .pose-box canvas {
@@ -79,27 +107,9 @@ section h2 {
   display: none;
 }
 
-/* --- Reference section --- */
-
-#reference-box {
-  border-style: dashed;
-  border-color: #444;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-#reference-box.dragover {
-  border-color: #6cf;
-  background: #1a2a2a;
-}
-
-#reference-box.has-image {
-  border-style: solid;
-  border-color: #333;
-}
-
 /* Upload prompt */
 
-#upload-prompt {
+.upload-prompt {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -108,11 +118,11 @@ section h2 {
   pointer-events: none;
 }
 
-#upload-prompt p {
+.upload-prompt p {
   font-size: 0.95rem;
 }
 
-#upload-label {
+.upload-label {
   pointer-events: auto;
   cursor: pointer;
   padding: 0.5rem 1.25rem;
@@ -124,35 +134,35 @@ section h2 {
   transition: background 0.15s, border-color 0.15s;
 }
 
-#upload-label:hover {
+.upload-label:hover {
   background: #333;
   border-color: #888;
 }
 
-#file-input {
+.file-input {
   display: none;
 }
 
-/* Reference image */
+/* Image */
 
-#reference-img {
+.pose-img {
   display: none;
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-#reference-box.has-image #upload-prompt {
+.pose-box.has-image .upload-prompt {
   display: none;
 }
 
-#reference-box.has-image #reference-img {
+.pose-box.has-image .pose-img {
   display: block;
 }
 
 /* Clear button */
 
-#clear-btn {
+.clear-btn {
   display: none;
   position: absolute;
   top: 8px;
@@ -170,26 +180,52 @@ section h2 {
   z-index: 2;
 }
 
-#clear-btn:hover {
+.clear-btn:hover {
   background: rgba(200, 50, 50, 0.8);
 }
 
-#reference-box.has-image #clear-btn {
+.pose-box.has-image .clear-btn {
   display: block;
 }
 
-/* --- Camera section --- */
+/* --- Overlay controls --- */
 
-#live-video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: none;
-  transform: scaleX(-1);
+#overlay-btn {
+  display: block;
+  margin: 0.75rem auto 0;
+  padding: 0.5rem 1.5rem;
+  border: 1px solid #555;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #ccc;
+  background: #252525;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-#camera-box.active #live-video {
-  display: block;
+#overlay-btn:hover {
+  background: #333;
+  border-color: #888;
+}
+
+#align-options {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+#align-options label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+#align-options input[type="radio"] {
+  accent-color: #6cf;
 }
 
 /* --- Settings --- */
@@ -218,29 +254,4 @@ section h2 {
   min-width: 2.5em;
   text-align: right;
   font-variant-numeric: tabular-nums;
-}
-
-/* --- Camera button --- */
-
-#camera-btn {
-  display: block;
-  margin: 0.75rem auto 0;
-  padding: 0.5rem 1.5rem;
-  border: 1px solid #555;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  color: #ccc;
-  background: #252525;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-#camera-btn:hover {
-  background: #333;
-  border-color: #888;
-}
-
-#camera-btn.active {
-  border-color: #f55;
-  color: #f99;
 }
