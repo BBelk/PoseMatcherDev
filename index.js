@@ -1,3 +1,67 @@
+// ========== EXIF DATE PARSER ==========
+
+async function readExifDate(file) {
+  try {
+    const buf = await file.slice(0, 65536).arrayBuffer();
+    const view = new DataView(buf);
+
+    // Check JPEG SOI
+    if (view.getUint16(0) !== 0xFFD8) return null;
+
+    let offset = 2;
+    while (offset < view.byteLength - 4) {
+      const marker = view.getUint16(offset);
+      if (marker === 0xFFE1) break; // APP1 (EXIF)
+      if ((marker & 0xFF00) !== 0xFF00) return null;
+      offset += 2 + view.getUint16(offset + 2);
+    }
+
+    const app1Start = offset + 4; // skip marker + length
+    // Check "Exif\0\0"
+    if (view.getUint32(app1Start) !== 0x45786966 || view.getUint16(app1Start + 4) !== 0) return null;
+
+    const tiffStart = app1Start + 6;
+    const le = view.getUint16(tiffStart) === 0x4949; // little-endian?
+
+    function u16(o) { return view.getUint16(tiffStart + o, le); }
+    function u32(o) { return view.getUint32(tiffStart + o, le); }
+
+    // Walk IFD0 to find EXIF sub-IFD pointer (tag 0x8769)
+    let exifOffset = null;
+    let entries = u16(4 + u32(4) - 8 < 0 ? 4 : u32(4));
+    // IFD0 starts at offset stored at byte 4
+    let ifdStart = u32(4);
+    entries = u16(ifdStart);
+    for (let i = 0; i < entries; i++) {
+      const entryOff = ifdStart + 2 + i * 12;
+      if (u16(entryOff) === 0x8769) {
+        exifOffset = u32(entryOff + 8);
+        break;
+      }
+    }
+    if (!exifOffset) return null;
+
+    // Walk EXIF sub-IFD for DateTimeOriginal (0x9003) or DateTime (0x0132)
+    entries = u16(exifOffset);
+    for (let i = 0; i < entries; i++) {
+      const entryOff = exifOffset + 2 + i * 12;
+      const tag = u16(entryOff);
+      if (tag === 0x9003 || tag === 0x9004 || tag === 0x0132) {
+        const strOffset = u32(entryOff + 8);
+        let str = '';
+        for (let j = 0; j < 19; j++) {
+          str += String.fromCharCode(view.getUint8(tiffStart + strOffset + j));
+        }
+        // "YYYY:MM:DD HH:MM:SS" → "YYYY-MM-DD HH:MM:SS"
+        return str.slice(0,4) + '-' + str.slice(5,7) + '-' + str.slice(8,10) + ' ' + str.slice(11);
+      }
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // ========== SETTINGS ==========
 
 const scoreThreshSlider = document.getElementById('score-thresh');
@@ -21,12 +85,13 @@ const storedPoses = { ref: null, cmp: null };
 
 // ========== GENERIC IMAGE BOX SETUP ==========
 
-function setupImageBox(boxId, imgId, fileId, canvasId, statusId, poseKey) {
+function setupImageBox(boxId, imgId, fileId, canvasId, statusId, metaId, poseKey) {
   const box = document.getElementById(boxId);
   const img = document.getElementById(imgId);
   const fileInput = document.getElementById(fileId);
   const canvas = document.getElementById(canvasId);
   const status = document.getElementById(statusId);
+  const meta = document.getElementById(metaId);
   const clearBtn = box.querySelector('.clear-btn');
 
   fileInput.addEventListener('change', (e) => {
@@ -64,10 +129,16 @@ function setupImageBox(boxId, imgId, fileId, canvasId, statusId, poseKey) {
     fileInput.value = '';
     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
     status.textContent = '';
+    meta.textContent = '';
     storedPoses[poseKey] = null;
   });
 
   function loadImage(file) {
+    // Extract EXIF date
+    readExifDate(file).then(date => {
+      meta.textContent = date || '';
+    });
+
     const url = URL.createObjectURL(file);
     img.onload = async () => {
       URL.revokeObjectURL(url);
@@ -219,5 +290,5 @@ function renderOverlay() {
 
 // ========== INIT ==========
 
-setupImageBox('reference-box', 'ref-img', 'ref-file', 'ref-canvas', 'ref-status', 'ref');
-setupImageBox('compare-box', 'cmp-img', 'cmp-file', 'cmp-canvas', 'cmp-status', 'cmp');
+setupImageBox('reference-box', 'ref-img', 'ref-file', 'ref-canvas', 'ref-status', 'ref-meta', 'ref');
+setupImageBox('compare-box', 'cmp-img', 'cmp-file', 'cmp-canvas', 'cmp-status', 'cmp-meta', 'cmp');

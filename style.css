@@ -160,6 +160,24 @@ section h2 {
   display: block;
 }
 
+/* Image metadata */
+
+.img-meta {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 0.7rem;
+  color: #999;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.img-meta:empty {
+  display: none;
+}
+
 /* Clear button */
 
 .clear-btn {
