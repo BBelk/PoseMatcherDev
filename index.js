@@ -195,7 +195,7 @@ function renderOverlay() {
   const cmpAngle = Math.atan2(cmpB.y - cmpA.y, cmpB.x - cmpA.x);
 
   const scale = refDist / cmpDist;
-  const rotation = refAngle - cmpAngle;
+  const rotation = document.getElementById('rotate-toggle').checked ? refAngle - cmpAngle : 0;
 
   const ctx = overlayCanvas.getContext('2d');
   ctx.clearRect(0, 0, w, h);

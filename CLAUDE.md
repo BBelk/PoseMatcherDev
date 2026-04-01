@@ -21,6 +21,7 @@ A browser-based pose matching application. Users upload two images — a referen
 ## Working Rules
 - **Follow instructions literally.** If the user says "do X in file Y", do exactly that — don't expand scope, don't add UI, don't build features that weren't asked for.
 - Keep everything lean and minimal. Don't over-engineer.
+- **Never run git commands or interact with GitHub.** No commits, no pushes, no PRs. The user handles all git/GitHub operations themselves.
 
 ## Development
 - `npm start` — serves files locally via `npx serve .`
