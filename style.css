@@ -21,21 +21,21 @@ h1 {
   letter-spacing: 0.02em;
 }
 
-/* --- Horizontal row of boxes --- */
+/* --- Top row: Reference + Output side by side --- */
 
-#boxes-row {
+#top-row {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
   justify-content: center;
   width: 100%;
-  max-width: 1500px;
+  max-width: 1000px;
+  margin-bottom: 1.5rem;
 }
 
-#boxes-row > section {
+#top-row > section {
   flex: 1 1 300px;
   max-width: 480px;
-  margin-bottom: 1.5rem;
 }
 
 /* --- Shared section styles --- */
@@ -47,9 +47,10 @@ section h2 {
   color: #aaa;
 }
 
+#compare-section,
 #settings-section {
   width: 100%;
-  max-width: 480px;
+  max-width: 1000px;
   margin-bottom: 1.5rem;
 }
 
@@ -206,7 +207,66 @@ section h2 {
   display: block;
 }
 
-/* --- Overlay controls --- */
+/* --- Comparison grid --- */
+
+#compare-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cmp-card {
+  position: relative;
+  width: 150px;
+  aspect-ratio: 3 / 4;
+  border: 2px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1a1a1a;
+  cursor: pointer;
+}
+
+.cmp-card.selected {
+  border-color: #6cf;
+}
+
+.cmp-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cmp-card canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.cmp-card .img-meta {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 0.6rem;
+}
+
+.cmp-card .clear-btn {
+  display: block;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  font-size: 0.9rem;
+}
+
+#compare-upload {
+  display: inline-block;
+}
+
+/* --- Output controls --- */
 
 #overlay-btn {
   display: block;

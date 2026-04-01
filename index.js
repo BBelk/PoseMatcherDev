@@ -5,33 +5,28 @@ async function readExifDate(file) {
     const buf = await file.slice(0, 65536).arrayBuffer();
     const view = new DataView(buf);
 
-    // Check JPEG SOI
     if (view.getUint16(0) !== 0xFFD8) return null;
 
     let offset = 2;
     while (offset < view.byteLength - 4) {
       const marker = view.getUint16(offset);
-      if (marker === 0xFFE1) break; // APP1 (EXIF)
+      if (marker === 0xFFE1) break;
       if ((marker & 0xFF00) !== 0xFF00) return null;
       offset += 2 + view.getUint16(offset + 2);
     }
 
-    const app1Start = offset + 4; // skip marker + length
-    // Check "Exif\0\0"
+    const app1Start = offset + 4;
     if (view.getUint32(app1Start) !== 0x45786966 || view.getUint16(app1Start + 4) !== 0) return null;
 
     const tiffStart = app1Start + 6;
-    const le = view.getUint16(tiffStart) === 0x4949; // little-endian?
+    const le = view.getUint16(tiffStart) === 0x4949;
 
     function u16(o) { return view.getUint16(tiffStart + o, le); }
     function u32(o) { return view.getUint32(tiffStart + o, le); }
 
-    // Walk IFD0 to find EXIF sub-IFD pointer (tag 0x8769)
-    let exifOffset = null;
-    let entries = u16(4 + u32(4) - 8 < 0 ? 4 : u32(4));
-    // IFD0 starts at offset stored at byte 4
     let ifdStart = u32(4);
-    entries = u16(ifdStart);
+    let entries = u16(ifdStart);
+    let exifOffset = null;
     for (let i = 0; i < entries; i++) {
       const entryOff = ifdStart + 2 + i * 12;
       if (u16(entryOff) === 0x8769) {
@@ -41,7 +36,6 @@ async function readExifDate(file) {
     }
     if (!exifOffset) return null;
 
-    // Walk EXIF sub-IFD for DateTimeOriginal (0x9003) or DateTime (0x0132)
     entries = u16(exifOffset);
     for (let i = 0; i < entries; i++) {
       const entryOff = exifOffset + 2 + i * 12;
@@ -52,7 +46,6 @@ async function readExifDate(file) {
         for (let j = 0; j < 19; j++) {
           str += String.fromCharCode(view.getUint8(tiffStart + strOffset + j));
         }
-        // "YYYY:MM:DD HH:MM:SS" → "YYYY-MM-DD HH:MM:SS"
         return str.slice(0,4) + '-' + str.slice(5,7) + '-' + str.slice(8,10) + ' ' + str.slice(11);
       }
     }
@@ -81,17 +74,17 @@ kpThreshSlider.addEventListener('input', () => {
 
 // ========== POSE STORAGE ==========
 
-const storedPoses = { ref: null, cmp: null };
+const storedPoses = { ref: null };
 
-// ========== GENERIC IMAGE BOX SETUP ==========
+// ========== REFERENCE IMAGE BOX ==========
 
-function setupImageBox(boxId, imgId, fileId, canvasId, statusId, metaId, poseKey) {
-  const box = document.getElementById(boxId);
-  const img = document.getElementById(imgId);
-  const fileInput = document.getElementById(fileId);
-  const canvas = document.getElementById(canvasId);
-  const status = document.getElementById(statusId);
-  const meta = document.getElementById(metaId);
+(function setupReference() {
+  const box = document.getElementById('reference-box');
+  const img = document.getElementById('ref-img');
+  const fileInput = document.getElementById('ref-file');
+  const canvas = document.getElementById('ref-canvas');
+  const status = document.getElementById('ref-status');
+  const meta = document.getElementById('ref-meta');
   const clearBtn = box.querySelector('.clear-btn');
 
   fileInput.addEventListener('change', (e) => {
@@ -99,15 +92,8 @@ function setupImageBox(boxId, imgId, fileId, canvasId, statusId, metaId, poseKey
     if (file) loadImage(file);
   });
 
-  box.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    box.classList.add('dragover');
-  });
-
-  box.addEventListener('dragleave', () => {
-    box.classList.remove('dragover');
-  });
-
+  box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('dragover'); });
+  box.addEventListener('dragleave', () => { box.classList.remove('dragover'); });
   box.addEventListener('drop', (e) => {
     e.preventDefault();
     box.classList.remove('dragover');
@@ -117,9 +103,7 @@ function setupImageBox(boxId, imgId, fileId, canvasId, statusId, metaId, poseKey
 
   box.addEventListener('click', (e) => {
     if (e.target.closest('.upload-label') || e.target === fileInput) return;
-    if (!box.classList.contains('has-image') && e.target !== clearBtn) {
-      fileInput.click();
-    }
+    if (!box.classList.contains('has-image') && e.target !== clearBtn) fileInput.click();
   });
 
   clearBtn.addEventListener('click', (e) => {
@@ -130,15 +114,11 @@ function setupImageBox(boxId, imgId, fileId, canvasId, statusId, metaId, poseKey
     canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
     status.textContent = '';
     meta.textContent = '';
-    storedPoses[poseKey] = null;
+    storedPoses.ref = null;
   });
 
   function loadImage(file) {
-    // Extract EXIF date
-    readExifDate(file).then(date => {
-      meta.textContent = date || '';
-    });
-
+    readExifDate(file).then(date => { meta.textContent = date || ''; });
     const url = URL.createObjectURL(file);
     img.onload = async () => {
       URL.revokeObjectURL(url);
@@ -154,10 +134,9 @@ function setupImageBox(boxId, imgId, fileId, canvasId, statusId, metaId, poseKey
     status.textContent = 'Detecting pose...';
     try {
       const poses = await estimatePoses(img);
-      storedPoses[poseKey] = poses;
+      storedPoses.ref = poses;
       const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, box);
       drawPoses(canvas, poses, rect);
-
       const total = poses.length;
       status.textContent = total + ' person' + (total !== 1 ? 's' : '') + ' detected';
       setTimeout(() => { status.textContent = ''; }, 2000);
@@ -173,21 +152,117 @@ function setupImageBox(boxId, imgId, fileId, canvasId, statusId, metaId, poseKey
     canvas.height = box.clientHeight;
     runDetection();
   });
+})();
+
+// ========== COMPARISONS (multi-image) ==========
+
+const compareGrid = document.getElementById('compare-grid');
+const cmpFileInput = document.getElementById('cmp-file');
+const comparisons = []; // { img, poses, date, card }
+let selectedCmpIndex = -1;
+
+cmpFileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  for (const file of files) addComparison(file);
+  cmpFileInput.value = '';
+});
+
+async function addComparison(file) {
+  const date = await readExifDate(file);
+  const url = URL.createObjectURL(file);
+
+  const card = document.createElement('div');
+  card.className = 'cmp-card';
+
+  const img = document.createElement('img');
+  img.alt = 'Comparison';
+
+  const canvas = document.createElement('canvas');
+  const metaEl = document.createElement('div');
+  metaEl.className = 'img-meta';
+  metaEl.textContent = date || '';
+
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'clear-btn';
+  clearBtn.textContent = '\u00d7';
+  clearBtn.title = 'Remove';
+
+  card.append(img, canvas, metaEl, clearBtn);
+  compareGrid.appendChild(card);
+
+  const index = comparisons.length;
+  const entry = { img, poses: null, date, card };
+  comparisons.push(entry);
+
+  // Select on click
+  card.addEventListener('click', (e) => {
+    if (e.target === clearBtn) return;
+    selectComparison(index);
+  });
+
+  // Remove
+  clearBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    removeComparison(index);
+  });
+
+  img.onload = async () => {
+    URL.revokeObjectURL(url);
+    canvas.width = card.clientWidth;
+    canvas.height = card.clientHeight;
+
+    try {
+      const poses = await estimatePoses(img);
+      entry.poses = poses;
+      const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, card);
+      drawPoses(canvas, poses, rect);
+    } catch (err) {
+      console.error('Comparison pose failed:', err);
+    }
+  };
+  img.src = url;
+
+  // Auto-select first
+  if (comparisons.length === 1) selectComparison(0);
 }
 
-// ========== OVERLAY ==========
+function selectComparison(index) {
+  selectedCmpIndex = index;
+  compareGrid.querySelectorAll('.cmp-card').forEach((c, i) => {
+    c.classList.toggle('selected', i === index);
+  });
+}
+
+function removeComparison(index) {
+  const entry = comparisons[index];
+  if (!entry) return;
+  entry.card.remove();
+  comparisons[index] = null;
+  if (selectedCmpIndex === index) {
+    // Select next available
+    selectedCmpIndex = -1;
+    for (let i = 0; i < comparisons.length; i++) {
+      if (comparisons[i]) { selectComparison(i); break; }
+    }
+  }
+}
+
+function getSelectedComparison() {
+  if (selectedCmpIndex < 0) return null;
+  return comparisons[selectedCmpIndex] || null;
+}
+
+// ========== OUTPUT (overlay) ==========
 
 const overlayBtn = document.getElementById('overlay-btn');
 const overlayCanvas = document.getElementById('overlay-canvas');
-const overlayBox = document.getElementById('overlay-box');
+const outputBox = document.getElementById('output-box');
 const refImg = document.getElementById('ref-img');
-const cmpImg = document.getElementById('cmp-img');
 
-// Anchor keypoint indices per alignment mode
 const ALIGN_POINTS = {
-  head:      [1, 2],   // left_eye, right_eye
-  shoulders: [5, 6],   // left_shoulder, right_shoulder
-  hips:      [11, 12], // left_hip, right_hip
+  head:      [1, 2],
+  shoulders: [5, 6],
+  hips:      [11, 12],
 };
 
 const refAlphaSlider = document.getElementById('ref-alpha');
@@ -218,9 +293,12 @@ const overlayStatus = document.getElementById('overlay-status');
 function renderOverlay() {
   overlayStatus.textContent = '';
   if (!overlayReady) return;
-  if (!refImg.naturalWidth || !cmpImg.naturalWidth) return;
-  if (!storedPoses.ref || !storedPoses.ref.length) return;
-  if (!storedPoses.cmp || !storedPoses.cmp.length) return;
+
+  const cmp = getSelectedComparison();
+  if (!refImg.naturalWidth) return;
+  if (!cmp || !cmp.img.naturalWidth) { overlayStatus.textContent = 'Select a comparison image'; return; }
+  if (!storedPoses.ref || !storedPoses.ref.length) { overlayStatus.textContent = 'No pose in reference'; return; }
+  if (!cmp.poses || !cmp.poses.length) { overlayStatus.textContent = 'No pose in comparison'; return; }
 
   const mode = document.querySelector('input[name="align"]:checked').value;
   const [i1, i2] = ALIGN_POINTS[mode];
@@ -228,7 +306,7 @@ function renderOverlay() {
   const thresh = POSE_CONFIG.confidenceThreshold;
 
   const refKps = storedPoses.ref[0].keypoints;
-  const cmpKps = storedPoses.cmp[0].keypoints;
+  const cmpKps = cmp.poses[0].keypoints;
 
   const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
   const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
@@ -239,13 +317,13 @@ function renderOverlay() {
     return;
   }
 
-  const w = overlayBox.clientWidth;
-  const h = overlayBox.clientHeight;
+  const w = outputBox.clientWidth;
+  const h = outputBox.clientHeight;
   overlayCanvas.width = w;
   overlayCanvas.height = h;
 
-  const refRect = getDisplayRect(refImg.naturalWidth, refImg.naturalHeight, overlayBox);
-  const cmpRect = getDisplayRect(cmpImg.naturalWidth, cmpImg.naturalHeight, overlayBox);
+  const refRect = getDisplayRect(refImg.naturalWidth, refImg.naturalHeight, outputBox);
+  const cmpRect = getDisplayRect(cmp.img.naturalWidth, cmp.img.naturalHeight, outputBox);
 
   function toCanvas(kp, rect) {
     return { x: rect.offsetX + kp.x * rect.width, y: rect.offsetY + kp.y * rect.height };
@@ -271,24 +349,17 @@ function renderOverlay() {
   const ctx = overlayCanvas.getContext('2d');
   ctx.clearRect(0, 0, w, h);
 
-  // Reference
   ctx.globalAlpha = parseFloat(refAlphaSlider.value);
   ctx.drawImage(refImg, refRect.offsetX, refRect.offsetY, refRect.width, refRect.height);
 
-  // Comparison (transformed)
   ctx.globalAlpha = parseFloat(cmpAlphaSlider.value);
   ctx.save();
   ctx.translate(refCx, refCy);
   ctx.rotate(rotation);
   ctx.scale(scale, scale);
   ctx.translate(-cmpCx, -cmpCy);
-  ctx.drawImage(cmpImg, cmpRect.offsetX, cmpRect.offsetY, cmpRect.width, cmpRect.height);
+  ctx.drawImage(cmp.img, cmpRect.offsetX, cmpRect.offsetY, cmpRect.width, cmpRect.height);
   ctx.restore();
 
   ctx.globalAlpha = 1.0;
 }
-
-// ========== INIT ==========
-
-setupImageBox('reference-box', 'ref-img', 'ref-file', 'ref-canvas', 'ref-status', 'ref-meta', 'ref');
-setupImageBox('compare-box', 'cmp-img', 'cmp-file', 'cmp-canvas', 'cmp-status', 'cmp-meta', 'cmp');

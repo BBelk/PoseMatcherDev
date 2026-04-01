@@ -9,7 +9,7 @@
 <body>
   <h1>PoseMatcher</h1>
 
-  <div id="boxes-row">
+  <div id="top-row">
     <section id="reference-section">
       <h2>Reference Pose</h2>
       <div id="reference-box" class="pose-box">
@@ -26,25 +26,9 @@
       </div>
     </section>
 
-    <section id="compare-section">
-      <h2>Comparison</h2>
-      <div id="compare-box" class="pose-box">
-        <div class="upload-prompt" data-for="cmp-file">
-          <p>Tap or drag an image here</p>
-          <label class="upload-label" for="cmp-file">Choose Image</label>
-          <input type="file" id="cmp-file" class="file-input" accept="image/*">
-        </div>
-        <img id="cmp-img" class="pose-img" alt="Comparison pose">
-        <canvas id="cmp-canvas"></canvas>
-        <div id="cmp-status" class="status"></div>
-        <div id="cmp-meta" class="img-meta"></div>
-        <button class="clear-btn" title="Clear image">&times;</button>
-      </div>
-    </section>
-
-    <section id="overlay-section">
-      <h2>Overlay</h2>
-      <div id="overlay-box" class="pose-box">
+    <section id="output-section">
+      <h2>Output</h2>
+      <div id="output-box" class="pose-box">
         <canvas id="overlay-canvas"></canvas>
         <div id="overlay-status" class="status"></div>
       </div>
@@ -70,6 +54,17 @@
       </div>
     </section>
   </div>
+
+  <section id="compare-section">
+    <h2>Comparisons</h2>
+    <div id="compare-grid">
+      <!-- comparison cards added dynamically -->
+    </div>
+    <div id="compare-upload">
+      <label class="upload-label" for="cmp-file">Add Images</label>
+      <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
+    </div>
+  </section>
 
   <section id="settings-section">
     <h2>Settings</h2>
