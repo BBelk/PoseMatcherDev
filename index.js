@@ -1,3 +1,80 @@
+// ========== INDEXEDDB PERSISTENCE ==========
+
+const DB_NAME = 'PoseMatcherDB';
+const DB_VERSION = 1;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('blobs')) db.createObjectStore('blobs');
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbPut(key, value) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blobs', 'readwrite');
+    tx.objectStore('blobs').put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbGet(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blobs', 'readonly');
+    const req = tx.objectStore('blobs').get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbDelete(key) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blobs', 'readwrite');
+    tx.objectStore('blobs').delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbClear() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blobs', 'readwrite');
+    tx.objectStore('blobs').clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbAllKeys() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('blobs', 'readonly');
+    const req = tx.objectStore('blobs').getAllKeys();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ========== CLEAR ALL ==========
+
+const clearAllBtn = document.getElementById('clear-all-btn');
+
+function updateClearAllVisibility() {
+  const hasRef = document.getElementById('reference-box').classList.contains('has-image');
+  const hasCmp = comparisons.some(c => c !== null);
+  clearAllBtn.style.display = (hasRef || hasCmp) ? '' : 'none';
+}
+
 // ========== EXIF DATE PARSER ==========
 
 async function readExifDate(file) {
@@ -108,6 +185,10 @@ const storedPoses = { ref: null };
 
   clearBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    clearRef();
+  });
+
+  function clearRef() {
     img.src = '';
     box.classList.remove('has-image');
     fileInput.value = '';
@@ -115,20 +196,33 @@ const storedPoses = { ref: null };
     status.textContent = '';
     meta.textContent = '';
     storedPoses.ref = null;
-  });
+    dbDelete('ref');
+    updateClearAllVisibility();
+  }
 
   function loadImage(file) {
     readExifDate(file).then(date => { meta.textContent = date || ''; });
-    const url = URL.createObjectURL(file);
+    // Persist blob
+    file.arrayBuffer().then(buf => dbPut('ref', new Blob([buf], { type: file.type })));
+    loadBlob(file);
+  }
+
+  function loadBlob(blob) {
+    const url = URL.createObjectURL(blob);
     img.onload = async () => {
       URL.revokeObjectURL(url);
       box.classList.add('has-image');
       canvas.width = box.clientWidth;
       canvas.height = box.clientHeight;
+      updateClearAllVisibility();
       await runDetection();
     };
     img.src = url;
   }
+
+  // Expose for restore and clear all
+  window._refClear = clearRef;
+  window._refLoadBlob = loadBlob;
 
   async function runDetection() {
     status.textContent = 'Detecting pose...';
@@ -161,15 +255,43 @@ const cmpFileInput = document.getElementById('cmp-file');
 const comparisons = []; // { img, poses, date, card }
 let selectedCmpIndex = -1;
 
+const compareSection = document.getElementById('compare-section');
+
+async function addMultipleComparisons(files) {
+  for (const file of files) await addComparison(file);
+}
+
 cmpFileInput.addEventListener('change', (e) => {
-  const files = Array.from(e.target.files);
-  for (const file of files) addComparison(file);
+  addMultipleComparisons(Array.from(e.target.files));
   cmpFileInput.value = '';
 });
 
-async function addComparison(file) {
-  const date = await readExifDate(file);
-  const url = URL.createObjectURL(file);
+compareSection.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  compareSection.classList.add('dragover');
+});
+
+compareSection.addEventListener('dragleave', () => {
+  compareSection.classList.remove('dragover');
+});
+
+compareSection.addEventListener('drop', (e) => {
+  e.preventDefault();
+  compareSection.classList.remove('dragover');
+  addMultipleComparisons(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+});
+
+let cmpIdCounter = 0;
+
+async function addComparison(fileOrBlob, dbKey) {
+  const date = fileOrBlob.name ? await readExifDate(fileOrBlob) : null;
+
+  // Persist with a stable unique key
+  const key = dbKey || ('cmp_' + Date.now() + '_' + (cmpIdCounter++));
+  if (!dbKey) {
+    const buf = await fileOrBlob.arrayBuffer();
+    await dbPut(key, new Blob([buf], { type: fileOrBlob.type }));
+  }
 
   const card = document.createElement('div');
   card.className = 'cmp-card';
@@ -191,39 +313,40 @@ async function addComparison(file) {
   compareGrid.appendChild(card);
 
   const index = comparisons.length;
-  const entry = { img, poses: null, date, card };
+  const entry = { img, poses: null, date, card, dbKey: key };
   comparisons.push(entry);
 
-  // Select on click
   card.addEventListener('click', (e) => {
     if (e.target === clearBtn) return;
     selectComparison(index);
   });
 
-  // Remove
   clearBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     removeComparison(index);
   });
 
-  img.onload = async () => {
-    URL.revokeObjectURL(url);
-    canvas.width = card.clientWidth;
-    canvas.height = card.clientHeight;
+  // Wait for image to actually load before continuing
+  await new Promise((resolve) => {
+    img.onload = async () => {
+      canvas.width = card.clientWidth;
+      canvas.height = card.clientHeight;
+      try {
+        const poses = await estimatePoses(img);
+        entry.poses = poses;
+        const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, card);
+        drawPoses(canvas, poses, rect);
+      } catch (err) {
+        console.error('Comparison pose failed:', err);
+      }
+      updateClearAllVisibility();
+      resolve();
+    };
+    img.onerror = resolve;
+    img.src = URL.createObjectURL(fileOrBlob);
+  });
 
-    try {
-      const poses = await estimatePoses(img);
-      entry.poses = poses;
-      const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, card);
-      drawPoses(canvas, poses, rect);
-    } catch (err) {
-      console.error('Comparison pose failed:', err);
-    }
-  };
-  img.src = url;
-
-  // Auto-select first
-  if (comparisons.length === 1) selectComparison(0);
+  if (comparisons.filter(c => c).length === 1) selectComparison(index);
 }
 
 function selectComparison(index) {
@@ -237,9 +360,10 @@ function removeComparison(index) {
   const entry = comparisons[index];
   if (!entry) return;
   entry.card.remove();
+  dbDelete(entry.dbKey);
   comparisons[index] = null;
+  updateClearAllVisibility();
   if (selectedCmpIndex === index) {
-    // Select next available
     selectedCmpIndex = -1;
     for (let i = 0; i < comparisons.length; i++) {
       if (comparisons[i]) { selectComparison(i); break; }
@@ -252,114 +376,284 @@ function getSelectedComparison() {
   return comparisons[selectedCmpIndex] || null;
 }
 
-// ========== OUTPUT (overlay) ==========
+// ========== OUTPUT (generate GIF) ==========
 
-const overlayBtn = document.getElementById('overlay-btn');
+const generateBtn = document.getElementById('generate-btn');
 const overlayCanvas = document.getElementById('overlay-canvas');
 const outputBox = document.getElementById('output-box');
+const outputGif = document.getElementById('output-gif');
 const refImg = document.getElementById('ref-img');
+const overlayStatus = document.getElementById('overlay-status');
+const frameDurationInput = document.getElementById('frame-duration');
 
-const ALIGN_POINTS = {
-  head:      [1, 2],
-  shoulders: [5, 6],
-  hips:      [11, 12],
+const alignPartSelect = document.getElementById('align-part');
+
+const MIDPOINT_PAIRS = {
+  eyes_mid: [1, 2],
+  shoulders_mid: [5, 6],
+  hips_mid: [11, 12],
 };
 
-const refAlphaSlider = document.getElementById('ref-alpha');
-const refAlphaVal = document.getElementById('ref-alpha-val');
-const cmpAlphaSlider = document.getElementById('cmp-alpha');
-const cmpAlphaVal = document.getElementById('cmp-alpha-val');
+// --- Alignment helper ---
 
-refAlphaSlider.addEventListener('input', () => {
-  refAlphaVal.textContent = refAlphaSlider.value;
-  renderOverlay();
-});
-
-cmpAlphaSlider.addEventListener('input', () => {
-  cmpAlphaVal.textContent = cmpAlphaSlider.value;
-  renderOverlay();
-});
-
-let overlayReady = false;
-
-overlayBtn.addEventListener('click', () => {
-  overlayReady = true;
-  renderOverlay();
-});
-
-const ALIGN_LABELS = { head: 'eyes', shoulders: 'shoulders', hips: 'hips' };
-const overlayStatus = document.getElementById('overlay-status');
-
-function renderOverlay() {
-  overlayStatus.textContent = '';
-  if (!overlayReady) return;
-
-  const cmp = getSelectedComparison();
-  if (!refImg.naturalWidth) return;
-  if (!cmp || !cmp.img.naturalWidth) { overlayStatus.textContent = 'Select a comparison image'; return; }
-  if (!storedPoses.ref || !storedPoses.ref.length) { overlayStatus.textContent = 'No pose in reference'; return; }
-  if (!cmp.poses || !cmp.poses.length) { overlayStatus.textContent = 'No pose in comparison'; return; }
-
-  const mode = document.querySelector('input[name="align"]:checked').value;
-  const [i1, i2] = ALIGN_POINTS[mode];
-  const label = ALIGN_LABELS[mode];
-  const thresh = POSE_CONFIG.confidenceThreshold;
-
-  const refKps = storedPoses.ref[0].keypoints;
-  const cmpKps = cmp.poses[0].keypoints;
-
-  const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
-  const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
-
-  if (!refOk || !cmpOk) {
-    const which = !refOk && !cmpOk ? 'both images' : !refOk ? 'reference' : 'comparison';
-    overlayStatus.textContent = 'No ' + label + ' detected in ' + which;
-    return;
+function getAlignConfig() {
+  const val = alignPartSelect.value;
+  if (MIDPOINT_PAIRS[val]) {
+    return { type: 'pair', indices: MIDPOINT_PAIRS[val], label: val.replace('_mid', '') };
   }
+  return { type: 'single', index: parseInt(val), label: COCO_KEYPOINTS[parseInt(val)] };
+}
 
-  const w = outputBox.clientWidth;
-  const h = outputBox.clientHeight;
-  overlayCanvas.width = w;
-  overlayCanvas.height = h;
-
-  const refRect = getDisplayRect(refImg.naturalWidth, refImg.naturalHeight, outputBox);
-  const cmpRect = getDisplayRect(cmp.img.naturalWidth, cmp.img.naturalHeight, outputBox);
+function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h) {
+  const align = getAlignConfig();
+  const thresh = POSE_CONFIG.confidenceThreshold;
+  const container = { clientWidth: w, clientHeight: h };
+  const refRect = getDisplayRect(refImgEl.naturalWidth, refImgEl.naturalHeight, container);
+  const cmpRect = getDisplayRect(cmpImgEl.naturalWidth, cmpImgEl.naturalHeight, container);
 
   function toCanvas(kp, rect) {
     return { x: rect.offsetX + kp.x * rect.width, y: rect.offsetY + kp.y * rect.height };
   }
 
-  const refA = toCanvas(refKps[i1], refRect);
-  const refB = toCanvas(refKps[i2], refRect);
-  const refCx = (refA.x + refB.x) / 2;
-  const refCy = (refA.y + refB.y) / 2;
-  const refDist = Math.hypot(refB.x - refA.x, refB.y - refA.y);
-  const refAngle = Math.atan2(refB.y - refA.y, refB.x - refA.x);
+  if (align.type === 'pair') {
+    const [i1, i2] = align.indices;
+    const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
+    const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
+    if (!refOk || !cmpOk) return null;
 
-  const cmpA = toCanvas(cmpKps[i1], cmpRect);
-  const cmpB = toCanvas(cmpKps[i2], cmpRect);
-  const cmpCx = (cmpA.x + cmpB.x) / 2;
-  const cmpCy = (cmpA.y + cmpB.y) / 2;
-  const cmpDist = Math.hypot(cmpB.x - cmpA.x, cmpB.y - cmpA.y);
-  const cmpAngle = Math.atan2(cmpB.y - cmpA.y, cmpB.x - cmpA.x);
+    const refA = toCanvas(refKps[i1], refRect), refB = toCanvas(refKps[i2], refRect);
+    const cmpA = toCanvas(cmpKps[i1], cmpRect), cmpB = toCanvas(cmpKps[i2], cmpRect);
 
-  const scale = refDist / cmpDist;
-  const rotation = document.getElementById('rotate-toggle').checked ? refAngle - cmpAngle : 0;
+    const refCx = (refA.x + refB.x) / 2, refCy = (refA.y + refB.y) / 2;
+    const cmpCx = (cmpA.x + cmpB.x) / 2, cmpCy = (cmpA.y + cmpB.y) / 2;
+    const refDist = Math.hypot(refB.x - refA.x, refB.y - refA.y);
+    const cmpDist = Math.hypot(cmpB.x - cmpA.x, cmpB.y - cmpA.y);
+    const refAngle = Math.atan2(refB.y - refA.y, refB.x - refA.x);
+    const cmpAngle = Math.atan2(cmpB.y - cmpA.y, cmpB.x - cmpA.x);
 
-  const ctx = overlayCanvas.getContext('2d');
-  ctx.clearRect(0, 0, w, h);
+    return {
+      refCx, refCy, cmpCx, cmpCy,
+      scale: refDist / cmpDist,
+      rotation: document.getElementById('rotate-toggle').checked ? refAngle - cmpAngle : 0,
+      refRect, cmpRect,
+    };
+  } else {
+    const i = align.index;
+    if (refKps[i].confidence < thresh || cmpKps[i].confidence < thresh) return null;
 
-  ctx.globalAlpha = parseFloat(refAlphaSlider.value);
-  ctx.drawImage(refImg, refRect.offsetX, refRect.offsetY, refRect.width, refRect.height);
+    const refP = toCanvas(refKps[i], refRect);
+    const cmpP = toCanvas(cmpKps[i], cmpRect);
 
-  ctx.globalAlpha = parseFloat(cmpAlphaSlider.value);
+    return {
+      refCx: refP.x, refCy: refP.y,
+      cmpCx: cmpP.x, cmpCy: cmpP.y,
+      scale: 1,
+      rotation: 0,
+      refRect, cmpRect,
+    };
+  }
+}
+
+// --- Frame rendering ---
+
+function drawFrameCounter(ctx, num, w) {
+  if (!document.getElementById('frame-counter-toggle').checked) return;
+  const text = String(num);
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  const metrics = ctx.measureText(text);
+  const pad = 5;
+  const bw = metrics.width + pad * 2;
+  const bh = 20;
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(w - bw - 6, 6, bw, bh);
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, w - bw / 2 - 6, 6 + bh / 2);
+}
+
+function renderRefFrame(w, h, frameNum) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const rect = getDisplayRect(refImg.naturalWidth, refImg.naturalHeight, { clientWidth: w, clientHeight: h });
+  ctx.drawImage(refImg, rect.offsetX, rect.offsetY, rect.width, rect.height);
+  drawFrameCounter(ctx, frameNum, w);
+  return canvas;
+}
+
+function renderCmpFrame(cmp, w, h, frameNum) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  const t = computeAlignTransform(
+    storedPoses.ref[0].keypoints, cmp.poses[0].keypoints,
+    refImg, cmp.img, w, h
+  );
+  if (!t) return null;
+
   ctx.save();
-  ctx.translate(refCx, refCy);
-  ctx.rotate(rotation);
-  ctx.scale(scale, scale);
-  ctx.translate(-cmpCx, -cmpCy);
-  ctx.drawImage(cmp.img, cmpRect.offsetX, cmpRect.offsetY, cmpRect.width, cmpRect.height);
+  ctx.translate(t.refCx, t.refCy);
+  ctx.rotate(t.rotation);
+  ctx.scale(t.scale, t.scale);
+  ctx.translate(-t.cmpCx, -t.cmpCy);
+  ctx.drawImage(cmp.img, t.cmpRect.offsetX, t.cmpRect.offsetY, t.cmpRect.width, t.cmpRect.height);
   ctx.restore();
 
-  ctx.globalAlpha = 1.0;
+  drawFrameCounter(ctx, frameNum, w);
+  return canvas;
 }
+
+// --- FFmpeg loading (local files, no CORS issues) ---
+
+let ffmpeg = null;
+
+async function loadFFmpeg() {
+  if (ffmpeg && ffmpeg.loaded) return ffmpeg;
+
+  overlayStatus.textContent = 'Loading FFmpeg...';
+  ffmpeg = new FFmpegWASM.FFmpeg();
+
+  ffmpeg.on('progress', ({ progress }) => {
+    if (progress > 0) overlayStatus.textContent = 'Encoding: ' + Math.round(progress * 100) + '%';
+  });
+
+  await ffmpeg.load({
+    coreURL: '/lib/ffmpeg/ffmpeg-core.js',
+    wasmURL: '/lib/ffmpeg/ffmpeg-core.wasm',
+  });
+
+  return ffmpeg;
+}
+
+function canvasToUint8(canvas) {
+  return new Promise(resolve => {
+    canvas.toBlob(async (blob) => {
+      resolve(new Uint8Array(await blob.arrayBuffer()));
+    }, 'image/png');
+  });
+}
+
+// --- Generate GIF ---
+
+generateBtn.addEventListener('click', generateGif);
+
+async function generateGif() {
+  overlayStatus.textContent = '';
+
+  if (!refImg.naturalWidth) { overlayStatus.textContent = 'Upload a reference image'; return; }
+  if (!storedPoses.ref || !storedPoses.ref.length) { overlayStatus.textContent = 'No pose in reference'; return; }
+
+  const validCmps = comparisons.filter(c => c && c.poses && c.poses.length);
+  if (!validCmps.length) { overlayStatus.textContent = 'Add comparison images'; return; }
+
+  const align = getAlignConfig();
+  const thresh = POSE_CONFIG.confidenceThreshold;
+  const indices = align.type === 'pair' ? align.indices : [align.index];
+
+  for (let i = 0; i < validCmps.length; i++) {
+    const kps = validCmps[i].poses[0].keypoints;
+    for (const idx of indices) {
+      if (kps[idx].confidence < thresh) {
+        overlayStatus.textContent = 'No ' + align.label + ' detected in comparison ' + (i + 1);
+        return;
+      }
+    }
+  }
+
+  const w = outputBox.clientWidth;
+  const h = outputBox.clientHeight;
+  const frameDuration = parseFloat(frameDurationInput.value);
+  const fps = 1 / frameDuration;
+
+  overlayStatus.textContent = 'Rendering frames...';
+
+  // Render all frames to PNG
+  let frameNum = 1;
+  const frames = [];
+  frames.push(await canvasToUint8(renderRefFrame(w, h, frameNum++)));
+  for (const cmp of validCmps) {
+    const canvas = renderCmpFrame(cmp, w, h, frameNum++);
+    if (canvas) frames.push(await canvasToUint8(canvas));
+  }
+
+  // Load ffmpeg
+  const ff = await loadFFmpeg();
+
+  // Write frames to virtual FS
+  overlayStatus.textContent = 'Writing frames...';
+  for (let i = 0; i < frames.length; i++) {
+    await ff.writeFile('frame_' + String(i).padStart(3, '0') + '.png', frames[i]);
+  }
+
+  // Generate GIF with palette for quality
+  overlayStatus.textContent = 'Encoding GIF...';
+  await ff.exec([
+    '-framerate', String(fps),
+    '-i', 'frame_%03d.png',
+    '-vf', 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+    '-loop', '0',
+    'output.gif',
+  ]);
+
+  // Read result and display
+  const gifData = await ff.readFile('output.gif');
+  const gifBlob = new Blob([gifData], { type: 'image/gif' });
+  outputGif.src = URL.createObjectURL(gifBlob);
+  outputGif.style.display = 'block';
+  overlayCanvas.style.display = 'none';
+  overlayStatus.textContent = '';
+
+  // Cleanup virtual FS
+  for (let i = 0; i < frames.length; i++) {
+    await ff.deleteFile('frame_' + String(i).padStart(3, '0') + '.png');
+  }
+  await ff.deleteFile('output.gif');
+}
+
+// ========== CLEAR ALL ==========
+
+clearAllBtn.addEventListener('click', async () => {
+  // Clear reference
+  window._refClear();
+  // Clear all comparisons
+  for (let i = comparisons.length - 1; i >= 0; i--) {
+    if (comparisons[i]) {
+      comparisons[i].card.remove();
+      comparisons[i] = null;
+    }
+  }
+  selectedCmpIndex = -1;
+  // Clear output
+  outputGif.style.display = 'none';
+  outputGif.src = '';
+  overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  overlayStatus.textContent = '';
+  // Clear DB
+  await dbClear();
+  updateClearAllVisibility();
+});
+
+// ========== RESTORE ON LOAD ==========
+
+(async function restore() {
+  try {
+    const keys = await dbAllKeys();
+    // Restore reference
+    if (keys.includes('ref')) {
+      const blob = await dbGet('ref');
+      if (blob) window._refLoadBlob(blob);
+    }
+    // Restore comparisons (sorted by key for consistent order)
+    const cmpKeys = keys.filter(k => String(k).startsWith('cmp_')).sort();
+    for (const key of cmpKeys) {
+      const blob = await dbGet(key);
+      if (blob) await addComparison(blob, key);
+    }
+  } catch (err) {
+    console.error('Restore failed:', err);
+  }
+})();

@@ -4,7 +4,9 @@
       "Bash(npm init:*)",
       "Bash(npm view:*)",
       "WebSearch",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(curl -L -O \"https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm\")",
+      "Bash(curl -L -O \"https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js\")"
     ]
   }
 }

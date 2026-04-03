@@ -7,7 +7,10 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>PoseMatcher</h1>
+  <div id="top-bar">
+    <h1>PoseMatcher</h1>
+    <button id="clear-all-btn" style="display:none">Clear All</button>
+  </div>
 
   <div id="top-row">
     <section id="reference-section">
@@ -31,26 +34,45 @@
       <div id="output-box" class="pose-box">
         <canvas id="overlay-canvas"></canvas>
         <div id="overlay-status" class="status"></div>
+        <img id="output-gif" class="output-gif">
       </div>
-      <button id="overlay-btn">Overlay</button>
-      <div class="setting">
-        <label for="ref-alpha">Reference alpha</label>
-        <input type="range" id="ref-alpha" min="0" max="1" step="0.05" value="0.5">
-        <span id="ref-alpha-val">0.5</span>
+      <button id="generate-btn">Generate</button>
+      <div class="setting-compact">
+        <label for="frame-duration">Frame duration (s)</label>
+        <input type="number" id="frame-duration" min="0.1" max="10" step="0.1" value="0.5">
       </div>
-      <div class="setting">
-        <label for="cmp-alpha">Comparison alpha</label>
-        <input type="range" id="cmp-alpha" min="0" max="1" step="0.05" value="0.5">
-        <span id="cmp-alpha-val">0.5</span>
-      </div>
-      <div class="setting">
-        <label for="rotate-toggle">Correct rotation</label>
+      <div class="setting-compact">
+        <label for="rotate-toggle">Match to reference rotation</label>
         <input type="checkbox" id="rotate-toggle" checked>
       </div>
-      <div id="align-options">
-        <label><input type="radio" name="align" value="head" checked> Head</label>
-        <label><input type="radio" name="align" value="shoulders"> Shoulders</label>
-        <label><input type="radio" name="align" value="hips"> Hips</label>
+      <div class="setting-compact">
+        <label for="frame-counter-toggle">Frame counter</label>
+        <input type="checkbox" id="frame-counter-toggle">
+      </div>
+      <div class="setting-compact">
+        <label for="align-part">Part to match</label>
+        <select id="align-part">
+          <option value="eyes_mid" selected>Eyes - Middle</option>
+          <option value="shoulders_mid">Shoulders - Middle</option>
+          <option value="hips_mid">Hips - Middle</option>
+          <option value="0">Nose</option>
+          <option value="1">Left Eye</option>
+          <option value="2">Right Eye</option>
+          <option value="3">Left Ear</option>
+          <option value="4">Right Ear</option>
+          <option value="5">Left Shoulder</option>
+          <option value="6">Right Shoulder</option>
+          <option value="7">Left Elbow</option>
+          <option value="8">Right Elbow</option>
+          <option value="9">Left Wrist</option>
+          <option value="10">Right Wrist</option>
+          <option value="11">Left Hip</option>
+          <option value="12">Right Hip</option>
+          <option value="13">Left Knee</option>
+          <option value="14">Right Knee</option>
+          <option value="15">Left Ankle</option>
+          <option value="16">Right Ankle</option>
+        </select>
       </div>
     </section>
   </div>
@@ -81,6 +103,7 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
+  <script src="lib/ffmpeg/ffmpeg.js"></script>
   <script src="pose.js"></script>
   <script src="index.js"></script>
 </body>
