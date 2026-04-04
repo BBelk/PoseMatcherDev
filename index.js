@@ -214,6 +214,9 @@ const storedPoses = { ref: null };
       box.classList.add('has-image');
       canvas.width = box.clientWidth;
       canvas.height = box.clientHeight;
+      // Populate output dimensions from reference
+      document.getElementById('output-width').value = img.naturalWidth;
+      document.getElementById('output-height').value = img.naturalHeight;
       updateClearAllVisibility();
       await runDetection();
     };
@@ -255,7 +258,7 @@ const cmpFileInput = document.getElementById('cmp-file');
 const comparisons = []; // { img, poses, date, card }
 let selectedCmpIndex = -1;
 
-const compareSection = document.getElementById('compare-section');
+const compareSection = document.getElementById('filmstrip-section');
 
 async function addMultipleComparisons(files) {
   for (const file of files) await addComparison(file);
@@ -564,8 +567,8 @@ async function generateGif() {
     }
   }
 
-  const w = outputBox.clientWidth;
-  const h = outputBox.clientHeight;
+  const w = parseInt(document.getElementById('output-width').value) || refImg.naturalWidth || outputBox.clientWidth;
+  const h = parseInt(document.getElementById('output-height').value) || refImg.naturalHeight || outputBox.clientHeight;
   const frameDuration = parseFloat(frameDurationInput.value);
   const fps = 1 / frameDuration;
 
