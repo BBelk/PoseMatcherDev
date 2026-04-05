@@ -173,8 +173,18 @@ function decodeMultiPose(results, session) {
     }
   }
 
-  poses.sort((a, b) => b.score - a.score);
+  // Sort left-to-right by average x of confident keypoints
+  poses.sort((a, b) => avgX(a.keypoints) - avgX(b.keypoints));
   return poses;
+}
+
+function avgX(keypoints) {
+  const thresh = POSE_CONFIG.confidenceThreshold;
+  let sum = 0, count = 0;
+  for (const kp of keypoints) {
+    if (kp.confidence >= thresh) { sum += kp.x; count++; }
+  }
+  return count ? sum / count : 0;
 }
 
 // --- Run estimation (returns array of poses) ---
@@ -212,13 +222,14 @@ function edgeColor(i, j) {
 function drawPoses(canvas, poses, displayRect) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const multi = poses.length > 1;
 
-  for (const pose of poses) {
-    drawSinglePose(ctx, pose.keypoints, displayRect);
+  for (let i = 0; i < poses.length; i++) {
+    drawSinglePose(ctx, poses[i].keypoints, displayRect, multi ? i : -1);
   }
 }
 
-function drawSinglePose(ctx, keypoints, displayRect) {
+function drawSinglePose(ctx, keypoints, displayRect, personId) {
   const { offsetX, offsetY, width, height } = displayRect;
   const thresh = POSE_CONFIG.confidenceThreshold;
 
@@ -252,5 +263,40 @@ function drawSinglePose(ctx, keypoints, displayRect) {
     ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+  }
+
+  // Bounding box + ID label (only when multiple people)
+  if (personId >= 0) {
+    const pad = 5;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const kp of keypoints) {
+      if (kp.confidence < thresh) continue;
+      const p = pt(kp);
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    if (minX < Infinity) {
+      minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+      ctx.setLineDash([]);
+
+      // ID label top-right of bounding box
+      const label = String(personId);
+      ctx.font = 'bold 12px system-ui, sans-serif';
+      const tw = ctx.measureText(label).width;
+      const lw = tw + 8;
+      const lh = 16;
+      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillRect(maxX - lw, minY, lw, lh);
+      ctx.fillStyle = '#fff';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, maxX - lw / 2, minY + lh / 2);
+    }
   }
 }

@@ -274,7 +274,7 @@ const cmpFileInput = document.getElementById('cmp-file');
 const comparisons = []; // { img, poses, date, card }
 let selectedCmpIndex = -1;
 
-const compareSection = document.getElementById('filmstrip-section');
+const compareSection = document.getElementById('compare-section');
 
 async function addMultipleComparisons(files) {
   for (const file of files) await addComparison(file);
@@ -510,6 +510,8 @@ function renderRefFrame(w, h, frameNum) {
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, w, h);
   const rect = getDisplayRect(refImg.naturalWidth, refImg.naturalHeight, { clientWidth: w, clientHeight: h });
   ctx.drawImage(refImg, rect.offsetX, rect.offsetY, rect.width, rect.height);
   drawFrameCounter(ctx, frameNum, w);
@@ -521,6 +523,8 @@ function renderCmpFrame(cmp, w, h, frameNum) {
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, w, h);
 
   const t = computeAlignTransform(
     storedPoses.ref[0].keypoints, cmp.poses[0].keypoints,
@@ -576,11 +580,23 @@ generateBtn.addEventListener('click', generateGif);
 
 function showProgress(msg) {
   const ph = outputBox.querySelector('.placeholder');
-  if (ph) ph.textContent = msg;
+  if (ph) {
+    ph.textContent = msg;
+    ph.style.display = '';
+  }
+}
+
+function resetOutput() {
+  outputGif.style.display = 'none';
+  outputGif.src = '';
+  overlayCanvas.style.display = 'none';
+  outputBox.classList.add('empty');
+  showProgress('Preparing...');
 }
 
 async function generateGif() {
   clearError();
+  resetOutput();
 
   if (!refImg.naturalWidth) { showError('Upload a reference image'); return; }
   if (!storedPoses.ref || !storedPoses.ref.length) { showError('No pose detected in reference'); return; }
@@ -645,7 +661,7 @@ async function generateGif() {
   overlayCanvas.style.display = 'none';
   clearError();
   // Expand output box and hide placeholder
-  outputBox.classList.remove('mini');
+  outputBox.classList.remove('empty');
   const ph = outputBox.querySelector('.placeholder');
   if (ph) ph.style.display = 'none';
 
@@ -674,9 +690,11 @@ clearAllBtn.addEventListener('click', async () => {
   outputGif.src = '';
   overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   clearError();
-  outputBox.classList.add('mini');
+  outputBox.classList.add('empty');
   const ph2 = outputBox.querySelector('.placeholder');
   if (ph2) ph2.style.display = '';
+  outputGif.style.display = 'none';
+  outputGif.src = '';
   // Clear DB
   await dbClear();
   updateClearAllVisibility();
