@@ -132,6 +132,14 @@ async function readExifDate(file) {
   }
 }
 
+// ========== OPTIONS PANEL PERSISTENCE ==========
+
+const optionsDetails = document.getElementById('options-details');
+if (localStorage.getItem('optionsOpen') === 'true') optionsDetails.open = true;
+optionsDetails.addEventListener('toggle', () => {
+  localStorage.setItem('optionsOpen', optionsDetails.open);
+});
+
 // ========== SETTINGS ==========
 
 const scoreThreshSlider = document.getElementById('score-thresh');
@@ -214,9 +222,17 @@ const storedPoses = { ref: null };
       box.classList.add('has-image');
       canvas.width = box.clientWidth;
       canvas.height = box.clientHeight;
-      // Populate output dimensions from reference
-      document.getElementById('output-width').value = img.naturalWidth;
-      document.getElementById('output-height').value = img.naturalHeight;
+      // Populate output dimensions from reference, capped to max 800px on longest side
+      const maxDim = 800;
+      let outW = img.naturalWidth;
+      let outH = img.naturalHeight;
+      if (outW > maxDim || outH > maxDim) {
+        const scale = maxDim / Math.max(outW, outH);
+        outW = Math.round(outW * scale);
+        outH = Math.round(outH * scale);
+      }
+      document.getElementById('output-width').value = outW;
+      document.getElementById('output-height').value = outH;
       updateClearAllVisibility();
       await runDetection();
     };
@@ -386,7 +402,21 @@ const overlayCanvas = document.getElementById('overlay-canvas');
 const outputBox = document.getElementById('output-box');
 const outputGif = document.getElementById('output-gif');
 const refImg = document.getElementById('ref-img');
-const overlayStatus = document.getElementById('overlay-status');
+const errorBanner = document.getElementById('error-banner');
+
+errorBanner.addEventListener('click', () => {
+  errorBanner.style.display = 'none';
+});
+
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.style.display = 'block';
+}
+
+function clearError() {
+  errorBanner.textContent = '';
+  errorBanner.style.display = 'none';
+}
 const frameDurationInput = document.getElementById('frame-duration');
 
 const alignPartSelect = document.getElementById('align-part');
@@ -517,11 +547,11 @@ let ffmpeg = null;
 async function loadFFmpeg() {
   if (ffmpeg && ffmpeg.loaded) return ffmpeg;
 
-  overlayStatus.textContent = 'Loading FFmpeg...';
+  showProgress('Loading FFmpeg...');
   ffmpeg = new FFmpegWASM.FFmpeg();
 
   ffmpeg.on('progress', ({ progress }) => {
-    if (progress > 0) overlayStatus.textContent = 'Encoding: ' + Math.round(progress * 100) + '%';
+    if (progress > 0) showProgress('Encoding: ' + Math.round(progress * 100) + '%');
   });
 
   await ffmpeg.load({
@@ -544,14 +574,19 @@ function canvasToUint8(canvas) {
 
 generateBtn.addEventListener('click', generateGif);
 
-async function generateGif() {
-  overlayStatus.textContent = '';
+function showProgress(msg) {
+  const ph = outputBox.querySelector('.placeholder');
+  if (ph) ph.textContent = msg;
+}
 
-  if (!refImg.naturalWidth) { overlayStatus.textContent = 'Upload a reference image'; return; }
-  if (!storedPoses.ref || !storedPoses.ref.length) { overlayStatus.textContent = 'No pose in reference'; return; }
+async function generateGif() {
+  clearError();
+
+  if (!refImg.naturalWidth) { showError('Upload a reference image'); return; }
+  if (!storedPoses.ref || !storedPoses.ref.length) { showError('No pose detected in reference'); return; }
 
   const validCmps = comparisons.filter(c => c && c.poses && c.poses.length);
-  if (!validCmps.length) { overlayStatus.textContent = 'Add comparison images'; return; }
+  if (!validCmps.length) { showError('Add comparison images'); return; }
 
   const align = getAlignConfig();
   const thresh = POSE_CONFIG.confidenceThreshold;
@@ -561,7 +596,7 @@ async function generateGif() {
     const kps = validCmps[i].poses[0].keypoints;
     for (const idx of indices) {
       if (kps[idx].confidence < thresh) {
-        overlayStatus.textContent = 'No ' + align.label + ' detected in comparison ' + (i + 1);
+        showError('No ' + align.label + ' detected in comparison ' + (i + 1));
         return;
       }
     }
@@ -572,7 +607,7 @@ async function generateGif() {
   const frameDuration = parseFloat(frameDurationInput.value);
   const fps = 1 / frameDuration;
 
-  overlayStatus.textContent = 'Rendering frames...';
+  showProgress('Rendering frames...');
 
   // Render all frames to PNG
   let frameNum = 1;
@@ -587,13 +622,13 @@ async function generateGif() {
   const ff = await loadFFmpeg();
 
   // Write frames to virtual FS
-  overlayStatus.textContent = 'Writing frames...';
+  showProgress('Writing frames...');
   for (let i = 0; i < frames.length; i++) {
     await ff.writeFile('frame_' + String(i).padStart(3, '0') + '.png', frames[i]);
   }
 
   // Generate GIF with palette for quality
-  overlayStatus.textContent = 'Encoding GIF...';
+  showProgress('Encoding GIF...');
   await ff.exec([
     '-framerate', String(fps),
     '-i', 'frame_%03d.png',
@@ -608,7 +643,11 @@ async function generateGif() {
   outputGif.src = URL.createObjectURL(gifBlob);
   outputGif.style.display = 'block';
   overlayCanvas.style.display = 'none';
-  overlayStatus.textContent = '';
+  clearError();
+  // Expand output box and hide placeholder
+  outputBox.classList.remove('mini');
+  const ph = outputBox.querySelector('.placeholder');
+  if (ph) ph.style.display = 'none';
 
   // Cleanup virtual FS
   for (let i = 0; i < frames.length; i++) {
@@ -634,7 +673,10 @@ clearAllBtn.addEventListener('click', async () => {
   outputGif.style.display = 'none';
   outputGif.src = '';
   overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  overlayStatus.textContent = '';
+  clearError();
+  outputBox.classList.add('mini');
+  const ph2 = outputBox.querySelector('.placeholder');
+  if (ph2) ph2.style.display = '';
   // Clear DB
   await dbClear();
   updateClearAllVisibility();

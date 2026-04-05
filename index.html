@@ -12,26 +12,24 @@
     <button id="clear-all-btn" style="display:none">Clear All</button>
   </div>
 
-  <div id="main-layout">
-    <div id="left-panel">
-      <section id="reference-section">
-        <h2>Reference Pose</h2>
-        <div id="reference-box" class="pose-box">
-          <div class="upload-prompt" data-for="ref-file">
-            <p>Tap or drag an image here</p>
-            <label class="upload-label" for="ref-file">Choose Image</label>
-            <input type="file" id="ref-file" class="file-input" accept="image/*">
-          </div>
-          <img id="ref-img" class="pose-img" alt="Reference pose">
-          <canvas id="ref-canvas"></canvas>
-          <div id="ref-status" class="status"></div>
-          <div id="ref-meta" class="img-meta"></div>
-          <button class="clear-btn" title="Clear image">&times;</button>
-        </div>
-      </section>
+  <div id="error-banner" style="display:none"></div>
 
-      <section id="controls-section">
-        <h2>Output Controls</h2>
+  <div id="main-row">
+    <section id="output-section" class="box-section">
+      <div class="section-header">
+        <h2>Output</h2>
+        <button id="generate-btn">Generate</button>
+      </div>
+      <div id="output-box" class="pose-box mini">
+        <span class="placeholder">Upload reference and comparison images, then hit Generate</span>
+        <canvas id="overlay-canvas"></canvas>
+        <img id="output-gif" class="output-gif">
+      </div>
+    </section>
+
+    <div id="options-panel">
+      <details id="options-details">
+        <summary>Options</summary>
         <div class="setting-compact">
           <label for="align-part">Part to match</label>
           <select id="align-part">
@@ -76,9 +74,6 @@
           <label for="frame-counter-toggle">Frame counter</label>
           <input type="checkbox" id="frame-counter-toggle">
         </div>
-        <button id="generate-btn">Generate</button>
-
-        <h2>Detection</h2>
         <div class="setting-compact">
           <label for="score-thresh">Person threshold</label>
           <input type="range" id="score-thresh" min="0.01" max="1" step="0.01" value="0.3">
@@ -89,27 +84,30 @@
           <input type="range" id="kp-thresh" min="0.01" max="1" step="0.01" value="0.3">
           <span id="kp-thresh-val">0.3</span>
         </div>
-      </section>
+      </details>
     </div>
 
-    <div id="right-panel">
-      <section id="output-section">
-        <h2>Output</h2>
-        <div id="output-box" class="pose-box">
-          <canvas id="overlay-canvas"></canvas>
-          <div id="overlay-status" class="status"></div>
-          <img id="output-gif" class="output-gif">
+    <section id="reference-section" class="box-section">
+      <h2>Reference Pose</h2>
+      <div id="reference-box" class="pose-box">
+        <div class="upload-prompt" data-for="ref-file">
+          <p>Tap or drag an image here</p>
+          <label class="upload-label" for="ref-file">Choose Image</label>
+          <input type="file" id="ref-file" class="file-input" accept="image/*">
         </div>
-      </section>
-    </div>
+        <img id="ref-img" class="pose-img" alt="Reference pose">
+        <canvas id="ref-canvas"></canvas>
+        <div id="ref-status" class="status"></div>
+        <div id="ref-meta" class="img-meta"></div>
+        <button class="clear-btn" title="Clear image">&times;</button>
+      </div>
+    </section>
   </div>
 
   <section id="filmstrip-section">
     <h2>Comparisons</h2>
     <div id="filmstrip-wrapper">
-      <div id="compare-grid">
-        <!-- comparison cards added dynamically -->
-      </div>
+      <div id="compare-grid"></div>
       <div id="compare-upload">
         <label class="upload-label" for="cmp-file">+ Add</label>
         <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
