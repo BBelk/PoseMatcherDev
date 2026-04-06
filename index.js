@@ -160,6 +160,73 @@ kpThreshSlider.addEventListener('input', () => {
 // ========== POSE STORAGE ==========
 
 const storedPoses = { ref: null };
+let refSelectedPerson = 0;
+
+// ========== PERSON SELECTION MODAL ==========
+
+const personModal = document.getElementById('person-modal');
+const modalCanvas = document.getElementById('modal-canvas');
+const modalCloseBtn = document.getElementById('modal-close');
+
+let modalCallback = null; // called with selected index
+
+modalCloseBtn.addEventListener('click', closeModal);
+personModal.addEventListener('click', (e) => {
+  if (e.target === personModal) closeModal();
+});
+
+function closeModal() {
+  personModal.style.display = 'none';
+  modalCallback = null;
+}
+
+function openPersonModal(imgEl, poses, currentSelected, onSelect) {
+  if (poses.length <= 1) return;
+
+  personModal.style.display = '';
+  modalCallback = onSelect;
+
+  // Size canvas to image aspect ratio, fitting in viewport
+  const maxW = window.innerWidth * 0.85;
+  const maxH = window.innerHeight * 0.7;
+  const scale = Math.min(maxW / imgEl.naturalWidth, maxH / imgEl.naturalHeight);
+  const cw = Math.round(imgEl.naturalWidth * scale);
+  const ch = Math.round(imgEl.naturalHeight * scale);
+  modalCanvas.width = cw;
+  modalCanvas.height = ch;
+
+  const ctx = modalCanvas.getContext('2d');
+  const rect = { offsetX: 0, offsetY: 0, width: cw, height: ch };
+
+  function render(sel) {
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(imgEl, 0, 0, cw, ch);
+    const multi = poses.length > 1;
+    for (let i = 0; i < poses.length; i++) {
+      drawSinglePose(ctx, poses[i].keypoints, rect, multi ? i : -1, multi && i === sel);
+    }
+  }
+
+  render(currentSelected);
+
+  const bounds = getPoseBounds(poses, rect);
+
+  modalCanvas.onclick = (e) => {
+    const r = modalCanvas.getBoundingClientRect();
+    const mx = (e.clientX - r.left) * (cw / r.width);
+    const my = (e.clientY - r.top) * (ch / r.height);
+
+    for (let i = 0; i < bounds.length; i++) {
+      const b = bounds[i];
+      if (mx >= b.minX && mx <= b.maxX && my >= b.minY && my <= b.maxY) {
+        render(i);
+        if (modalCallback) modalCallback(i);
+        setTimeout(closeModal, 300);
+        return;
+      }
+    }
+  };
+}
 
 // ========== REFERENCE IMAGE BOX ==========
 
@@ -187,8 +254,16 @@ const storedPoses = { ref: null };
   });
 
   box.addEventListener('click', (e) => {
-    if (e.target.closest('.upload-label') || e.target === fileInput) return;
-    if (!box.classList.contains('has-image') && e.target !== clearBtn) fileInput.click();
+    if (e.target.closest('.upload-label') || e.target === fileInput || e.target === clearBtn) return;
+    if (!box.classList.contains('has-image')) {
+      fileInput.click();
+    } else if (storedPoses.ref && storedPoses.ref.length > 1) {
+      openPersonModal(img, storedPoses.ref, refSelectedPerson, (idx) => {
+        refSelectedPerson = idx;
+        const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, box);
+        drawPoses(canvas, storedPoses.ref, rect, refSelectedPerson);
+      });
+    }
   });
 
   clearBtn.addEventListener('click', (e) => {
@@ -204,6 +279,7 @@ const storedPoses = { ref: null };
     status.textContent = '';
     meta.textContent = '';
     storedPoses.ref = null;
+    refSelectedPerson = 0;
     dbDelete('ref');
     updateClearAllVisibility();
   }
@@ -248,8 +324,9 @@ const storedPoses = { ref: null };
     try {
       const poses = await estimatePoses(img);
       storedPoses.ref = poses;
+      refSelectedPerson = 0; // default to leftmost
       const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, box);
-      drawPoses(canvas, poses, rect);
+      drawPoses(canvas, poses, rect, refSelectedPerson);
       const total = poses.length;
       status.textContent = total + ' person' + (total !== 1 ? 's' : '') + ' detected';
       setTimeout(() => { status.textContent = ''; }, 2000);
@@ -332,12 +409,22 @@ async function addComparison(fileOrBlob, dbKey) {
   compareGrid.appendChild(card);
 
   const index = comparisons.length;
-  const entry = { img, poses: null, date, card, dbKey: key };
+  const entry = { img, poses: null, date, card, dbKey: key, selectedPerson: 0 };
   comparisons.push(entry);
 
   card.addEventListener('click', (e) => {
     if (e.target === clearBtn) return;
     selectComparison(index);
+    // Open person modal if multiple people
+    if (entry.poses && entry.poses.length > 1) {
+      openPersonModal(img, entry.poses, entry.selectedPerson, (idx) => {
+        entry.selectedPerson = idx;
+        canvas.width = card.clientWidth;
+        canvas.height = card.clientHeight;
+        const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, card);
+        drawPoses(canvas, entry.poses, rect, idx);
+      });
+    }
   });
 
   clearBtn.addEventListener('click', (e) => {
@@ -353,8 +440,9 @@ async function addComparison(fileOrBlob, dbKey) {
       try {
         const poses = await estimatePoses(img);
         entry.poses = poses;
+        entry.selectedPerson = 0;
         const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, card);
-        drawPoses(canvas, poses, rect);
+        drawPoses(canvas, poses, rect, 0);
       } catch (err) {
         console.error('Comparison pose failed:', err);
       }
@@ -418,27 +506,58 @@ function clearError() {
   errorBanner.style.display = 'none';
 }
 const frameDurationInput = document.getElementById('frame-duration');
+const customDurationsToggle = document.getElementById('custom-durations-toggle');
+const customDurationsPanel = document.getElementById('custom-durations');
+const firstFrameDuration = document.getElementById('first-frame-duration');
+const middleFrameDuration = document.getElementById('middle-frame-duration');
+const lastFrameDuration = document.getElementById('last-frame-duration');
+
+// Sync default duration into custom fields when changed
+frameDurationInput.addEventListener('input', () => {
+  if (!customDurationsToggle.checked) {
+    firstFrameDuration.value = frameDurationInput.value;
+    middleFrameDuration.value = frameDurationInput.value;
+    lastFrameDuration.value = frameDurationInput.value;
+  }
+});
+
+// Toggle custom durations panel
+const frameDurationRow = frameDurationInput.closest('.setting-compact');
+customDurationsToggle.addEventListener('change', () => {
+  const custom = customDurationsToggle.checked;
+  customDurationsPanel.style.display = custom ? '' : 'none';
+  frameDurationRow.style.display = custom ? 'none' : '';
+  if (!custom) {
+    firstFrameDuration.value = frameDurationInput.value;
+    middleFrameDuration.value = frameDurationInput.value;
+    lastFrameDuration.value = frameDurationInput.value;
+  }
+});
 
 const alignPartSelect = document.getElementById('align-part');
+const scaleToggle = document.getElementById('scale-toggle');
+const scalePairSelect = document.getElementById('scale-pair');
+const scalePairRow = document.getElementById('scale-pair-row');
+const rotateToggle = document.getElementById('rotate-toggle');
+const rotatePairSelect = document.getElementById('rotate-pair');
+const rotatePairRow = document.getElementById('rotate-pair-row');
 
-const MIDPOINT_PAIRS = {
-  eyes_mid: [1, 2],
-  shoulders_mid: [5, 6],
-  hips_mid: [11, 12],
+scaleToggle.addEventListener('change', () => {
+  scalePairRow.style.display = scaleToggle.checked ? '' : 'none';
+});
+rotateToggle.addEventListener('change', () => {
+  rotatePairRow.style.display = rotateToggle.checked ? '' : 'none';
+});
+
+const PAIR_INDICES = {
+  shoulders: [5, 6],
+  hips: [11, 12],
+  eyes: [1, 2],
 };
 
 // --- Alignment helper ---
 
-function getAlignConfig() {
-  const val = alignPartSelect.value;
-  if (MIDPOINT_PAIRS[val]) {
-    return { type: 'pair', indices: MIDPOINT_PAIRS[val], label: val.replace('_mid', '') };
-  }
-  return { type: 'single', index: parseInt(val), label: COCO_KEYPOINTS[parseInt(val)] };
-}
-
 function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h) {
-  const align = getAlignConfig();
   const thresh = POSE_CONFIG.confidenceThreshold;
   const container = { clientWidth: w, clientHeight: h };
   const refRect = getDisplayRect(refImgEl.naturalWidth, refImgEl.naturalHeight, container);
@@ -448,43 +567,47 @@ function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h) {
     return { x: rect.offsetX + kp.x * rect.width, y: rect.offsetY + kp.y * rect.height };
   }
 
-  if (align.type === 'pair') {
-    const [i1, i2] = align.indices;
+  // Position anchor (single keypoint)
+  const anchorIdx = parseInt(alignPartSelect.value);
+  if (refKps[anchorIdx].confidence < thresh || cmpKps[anchorIdx].confidence < thresh) return null;
+  const refAnchor = toCanvas(refKps[anchorIdx], refRect);
+  const cmpAnchor = toCanvas(cmpKps[anchorIdx], cmpRect);
+
+  // Scale from pair
+  let scale = 1;
+  if (scaleToggle.checked) {
+    const [i1, i2] = PAIR_INDICES[scalePairSelect.value];
     const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
     const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
-    if (!refOk || !cmpOk) return null;
-
-    const refA = toCanvas(refKps[i1], refRect), refB = toCanvas(refKps[i2], refRect);
-    const cmpA = toCanvas(cmpKps[i1], cmpRect), cmpB = toCanvas(cmpKps[i2], cmpRect);
-
-    const refCx = (refA.x + refB.x) / 2, refCy = (refA.y + refB.y) / 2;
-    const cmpCx = (cmpA.x + cmpB.x) / 2, cmpCy = (cmpA.y + cmpB.y) / 2;
-    const refDist = Math.hypot(refB.x - refA.x, refB.y - refA.y);
-    const cmpDist = Math.hypot(cmpB.x - cmpA.x, cmpB.y - cmpA.y);
-    const refAngle = Math.atan2(refB.y - refA.y, refB.x - refA.x);
-    const cmpAngle = Math.atan2(cmpB.y - cmpA.y, cmpB.x - cmpA.x);
-
-    return {
-      refCx, refCy, cmpCx, cmpCy,
-      scale: refDist / cmpDist,
-      rotation: document.getElementById('rotate-toggle').checked ? refAngle - cmpAngle : 0,
-      refRect, cmpRect,
-    };
-  } else {
-    const i = align.index;
-    if (refKps[i].confidence < thresh || cmpKps[i].confidence < thresh) return null;
-
-    const refP = toCanvas(refKps[i], refRect);
-    const cmpP = toCanvas(cmpKps[i], cmpRect);
-
-    return {
-      refCx: refP.x, refCy: refP.y,
-      cmpCx: cmpP.x, cmpCy: cmpP.y,
-      scale: 1,
-      rotation: 0,
-      refRect, cmpRect,
-    };
+    if (refOk && cmpOk) {
+      const refA = toCanvas(refKps[i1], refRect), refB = toCanvas(refKps[i2], refRect);
+      const cmpA = toCanvas(cmpKps[i1], cmpRect), cmpB = toCanvas(cmpKps[i2], cmpRect);
+      const refDist = Math.hypot(refB.x - refA.x, refB.y - refA.y);
+      const cmpDist = Math.hypot(cmpB.x - cmpA.x, cmpB.y - cmpA.y);
+      if (cmpDist > 0) scale = refDist / cmpDist;
+    }
   }
+
+  // Rotation from pair
+  let rotation = 0;
+  if (rotateToggle.checked) {
+    const [i1, i2] = PAIR_INDICES[rotatePairSelect.value];
+    const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
+    const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
+    if (refOk && cmpOk) {
+      const refA = toCanvas(refKps[i1], refRect), refB = toCanvas(refKps[i2], refRect);
+      const cmpA = toCanvas(cmpKps[i1], cmpRect), cmpB = toCanvas(cmpKps[i2], cmpRect);
+      const refAngle = Math.atan2(refB.y - refA.y, refB.x - refA.x);
+      const cmpAngle = Math.atan2(cmpB.y - cmpA.y, cmpB.x - cmpA.x);
+      rotation = refAngle - cmpAngle;
+    }
+  }
+
+  return {
+    refCx: refAnchor.x, refCy: refAnchor.y,
+    cmpCx: cmpAnchor.x, cmpCy: cmpAnchor.y,
+    scale, rotation, refRect, cmpRect,
+  };
 }
 
 // --- Frame rendering ---
@@ -527,7 +650,7 @@ function renderCmpFrame(cmp, w, h, frameNum) {
   ctx.fillRect(0, 0, w, h);
 
   const t = computeAlignTransform(
-    storedPoses.ref[0].keypoints, cmp.poses[0].keypoints,
+    storedPoses.ref[refSelectedPerson].keypoints, cmp.poses[cmp.selectedPerson].keypoints,
     refImg, cmp.img, w, h
   );
   if (!t) return null;
@@ -604,35 +727,48 @@ async function generateGif() {
   const validCmps = comparisons.filter(c => c && c.poses && c.poses.length);
   if (!validCmps.length) { showError('Add comparison images'); return; }
 
-  const align = getAlignConfig();
+  const anchorIdx = parseInt(alignPartSelect.value);
+  const anchorLabel = COCO_KEYPOINTS[anchorIdx];
   const thresh = POSE_CONFIG.confidenceThreshold;
-  const indices = align.type === 'pair' ? align.indices : [align.index];
 
   for (let i = 0; i < validCmps.length; i++) {
-    const kps = validCmps[i].poses[0].keypoints;
-    for (const idx of indices) {
-      if (kps[idx].confidence < thresh) {
-        showError('No ' + align.label + ' detected in comparison ' + (i + 1));
-        return;
-      }
+    const kps = validCmps[i].poses[validCmps[i].selectedPerson].keypoints;
+    if (kps[anchorIdx].confidence < thresh) {
+      showError('No ' + anchorLabel + ' detected in comparison ' + (i + 1));
+      return;
     }
   }
 
   const w = parseInt(document.getElementById('output-width').value) || refImg.naturalWidth || outputBox.clientWidth;
   const h = parseInt(document.getElementById('output-height').value) || refImg.naturalHeight || outputBox.clientHeight;
-  const frameDuration = parseFloat(frameDurationInput.value);
-  const fps = 1 / frameDuration;
+  const includeRef = document.getElementById('include-ref-toggle').checked;
+  const loopGif = document.getElementById('loop-toggle').checked;
+
+  // Determine per-frame durations
+  const defaultDur = parseFloat(frameDurationInput.value) || 0.5;
+  let durFirst, durMiddle, durLast;
+  if (customDurationsToggle.checked) {
+    durFirst = parseFloat(firstFrameDuration.value) || defaultDur;
+    durMiddle = parseFloat(middleFrameDuration.value) || defaultDur;
+    durLast = parseFloat(lastFrameDuration.value) || defaultDur;
+  } else {
+    durFirst = durMiddle = durLast = defaultDur;
+  }
 
   showProgress('Rendering frames...');
 
   // Render all frames to PNG
   let frameNum = 1;
   const frames = [];
-  frames.push(await canvasToUint8(renderRefFrame(w, h, frameNum++)));
+  if (includeRef) {
+    frames.push(await canvasToUint8(renderRefFrame(w, h, frameNum++)));
+  }
   for (const cmp of validCmps) {
     const canvas = renderCmpFrame(cmp, w, h, frameNum++);
     if (canvas) frames.push(await canvasToUint8(canvas));
   }
+
+  if (!frames.length) { showError('No frames to encode'); return; }
 
   // Load ffmpeg
   const ff = await loadFFmpeg();
@@ -643,13 +779,24 @@ async function generateGif() {
     await ff.writeFile('frame_' + String(i).padStart(3, '0') + '.png', frames[i]);
   }
 
+  // Build concat demuxer file with per-frame durations
+  const lastIdx = frames.length - 1;
+  let concatList = '';
+  for (let i = 0; i < frames.length; i++) {
+    const dur = i === 0 ? durFirst : i === lastIdx ? durLast : durMiddle;
+    concatList += "file 'frame_" + String(i).padStart(3, '0') + ".png'\n";
+    concatList += 'duration ' + dur + '\n';
+  }
+  // Concat demuxer needs the last file repeated without duration to avoid truncation
+  concatList += "file 'frame_" + String(lastIdx).padStart(3, '0') + ".png'\n";
+  await ff.writeFile('frames.txt', new TextEncoder().encode(concatList));
+
   // Generate GIF with palette for quality
   showProgress('Encoding GIF...');
   await ff.exec([
-    '-framerate', String(fps),
-    '-i', 'frame_%03d.png',
+    '-f', 'concat', '-safe', '0', '-i', 'frames.txt',
     '-vf', 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
-    '-loop', '0',
+    '-loop', loopGif ? '0' : '-1',
     'output.gif',
   ]);
 
@@ -669,6 +816,7 @@ async function generateGif() {
   for (let i = 0; i < frames.length; i++) {
     await ff.deleteFile('frame_' + String(i).padStart(3, '0') + '.png');
   }
+  await ff.deleteFile('frames.txt');
   await ff.deleteFile('output.gif');
 }
 

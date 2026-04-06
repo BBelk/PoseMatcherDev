@@ -49,12 +49,9 @@
       <summary>Options</summary>
       <div class="options-body">
         <div class="setting-compact">
-          <label for="align-part">Part to match</label>
+          <label for="align-part">Position anchor</label>
           <select id="align-part">
-            <option value="eyes_mid" selected>Eyes - Middle</option>
-            <option value="shoulders_mid">Shoulders - Middle</option>
-            <option value="hips_mid">Hips - Middle</option>
-            <option value="0">Nose</option>
+            <option value="0" selected>Nose</option>
             <option value="1">Left Eye</option>
             <option value="2">Right Eye</option>
             <option value="3">Left Ear</option>
@@ -74,8 +71,28 @@
           </select>
         </div>
         <div class="setting-compact">
+          <label for="scale-toggle">Match scale</label>
+          <input type="checkbox" id="scale-toggle" checked>
+        </div>
+        <div id="scale-pair-row" class="setting-compact">
+          <label for="scale-pair">Scale pair</label>
+          <select id="scale-pair">
+            <option value="shoulders" selected>Shoulders</option>
+            <option value="hips">Hips</option>
+            <option value="eyes">Eyes</option>
+          </select>
+        </div>
+        <div class="setting-compact">
           <label for="rotate-toggle">Match rotation</label>
           <input type="checkbox" id="rotate-toggle" checked>
+        </div>
+        <div id="rotate-pair-row" class="setting-compact">
+          <label for="rotate-pair">Rotation pair</label>
+          <select id="rotate-pair">
+            <option value="shoulders" selected>Shoulders</option>
+            <option value="hips">Hips</option>
+            <option value="eyes">Eyes</option>
+          </select>
         </div>
         <div class="setting-compact">
           <label>Output size</label>
@@ -85,8 +102,34 @@
           </span>
         </div>
         <div class="setting-compact">
+          <label for="include-ref-toggle">Include reference in output</label>
+          <input type="checkbox" id="include-ref-toggle" checked>
+        </div>
+        <div class="setting-compact">
+          <label for="loop-toggle">Loop GIF</label>
+          <input type="checkbox" id="loop-toggle" checked>
+        </div>
+        <div class="setting-compact">
           <label for="frame-duration">Frame duration (s)</label>
           <input type="number" id="frame-duration" min="0.1" max="10" step="0.1" value="0.5">
+        </div>
+        <div class="setting-compact">
+          <label for="custom-durations-toggle">Customize durations</label>
+          <input type="checkbox" id="custom-durations-toggle">
+        </div>
+        <div id="custom-durations" style="display:none">
+          <div class="setting-compact">
+            <label for="first-frame-duration">First frame (s)</label>
+            <input type="number" id="first-frame-duration" min="0.1" max="10" step="0.1" value="0.5">
+          </div>
+          <div class="setting-compact">
+            <label for="middle-frame-duration">Middle frame(s) (s)</label>
+            <input type="number" id="middle-frame-duration" min="0.1" max="10" step="0.1" value="0.5">
+          </div>
+          <div class="setting-compact">
+            <label for="last-frame-duration">Last frame (s)</label>
+            <input type="number" id="last-frame-duration" min="0.1" max="10" step="0.1" value="0.5">
+          </div>
         </div>
         <div class="setting-compact">
           <label for="frame-counter-toggle">Frame counter</label>
@@ -114,6 +157,17 @@
       <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
     </div>
   </section>
+
+  <div id="person-modal" class="modal-overlay" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Select a person</h3>
+        <button id="modal-close">&times;</button>
+      </div>
+      <canvas id="modal-canvas"></canvas>
+      <p class="modal-hint">Click a bounding box to select</p>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
   <script src="lib/ffmpeg/ffmpeg.js"></script>

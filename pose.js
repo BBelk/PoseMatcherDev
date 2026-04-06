@@ -219,17 +219,39 @@ function edgeColor(i, j) {
   return '#00ff88';
 }
 
-function drawPoses(canvas, poses, displayRect) {
+function drawPoses(canvas, poses, displayRect, selectedIdx) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const multi = poses.length > 1;
+  const sel = selectedIdx != null ? selectedIdx : 0;
 
   for (let i = 0; i < poses.length; i++) {
-    drawSinglePose(ctx, poses[i].keypoints, displayRect, multi ? i : -1);
+    drawSinglePose(ctx, poses[i].keypoints, displayRect, multi ? i : -1, multi && i === sel);
   }
 }
 
-function drawSinglePose(ctx, keypoints, displayRect, personId) {
+// Returns bounding boxes for each pose in canvas coords (for click detection)
+function getPoseBounds(poses, displayRect) {
+  const { offsetX, offsetY, width, height } = displayRect;
+  const thresh = POSE_CONFIG.confidenceThreshold;
+  const pad = 5;
+
+  return poses.map(pose => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const kp of pose.keypoints) {
+      if (kp.confidence < thresh) continue;
+      const px = offsetX + kp.x * width;
+      const py = offsetY + kp.y * height;
+      if (px < minX) minX = px;
+      if (py < minY) minY = py;
+      if (px > maxX) maxX = px;
+      if (py > maxY) maxY = py;
+    }
+    return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
+  });
+}
+
+function drawSinglePose(ctx, keypoints, displayRect, personId, isSelected) {
   const { offsetX, offsetY, width, height } = displayRect;
   const thresh = POSE_CONFIG.confidenceThreshold;
 
@@ -279,19 +301,19 @@ function drawSinglePose(ctx, keypoints, displayRect, personId) {
     }
     if (minX < Infinity) {
       minX -= pad; minY -= pad; maxX += pad; maxY += pad;
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isSelected ? '#6cf' : '#fff';
+      ctx.lineWidth = isSelected ? 2 : 1;
       ctx.setLineDash([4, 4]);
       ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
       ctx.setLineDash([]);
 
       // ID label top-right of bounding box
-      const label = String(personId);
+      const label = (isSelected ? 'Selected ' : '') + personId;
       ctx.font = 'bold 12px system-ui, sans-serif';
       const tw = ctx.measureText(label).width;
       const lw = tw + 8;
       const lh = 16;
-      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillStyle = isSelected ? 'rgba(40,80,120,0.9)' : 'rgba(0,0,0,0.8)';
       ctx.fillRect(maxX - lw, minY, lw, lh);
       ctx.fillStyle = '#fff';
       ctx.textBaseline = 'middle';
