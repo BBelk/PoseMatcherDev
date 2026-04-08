@@ -71,7 +71,7 @@ const clearAllBtn = document.getElementById('clear-all-btn');
 
 function updateClearAllVisibility() {
   const hasRef = document.getElementById('reference-box').classList.contains('has-image');
-  const hasCmp = comparisons.some(c => c !== null);
+  const hasCmp = comparisons.length > 0;
   clearAllBtn.style.display = (hasRef || hasCmp) ? '' : 'none';
 }
 
@@ -363,6 +363,7 @@ cmpFileInput.addEventListener('change', (e) => {
 });
 
 compareSection.addEventListener('dragover', (e) => {
+  if (draggedEntry) return; // internal card reorder, not file drop
   e.preventDefault();
   compareSection.classList.add('dragover');
 });
@@ -372,12 +373,49 @@ compareSection.addEventListener('dragleave', () => {
 });
 
 compareSection.addEventListener('drop', (e) => {
+  if (draggedEntry) return; // ignore internal card drops
   e.preventDefault();
   compareSection.classList.remove('dragover');
   addMultipleComparisons(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
 });
 
 let cmpIdCounter = 0;
+let draggedEntry = null;
+let dropTargetEntry = null;
+let dropInsertAfter = false;
+
+const dropIndicator = document.createElement('div');
+dropIndicator.className = 'drop-indicator';
+
+// Grid-level handlers so drops over the indicator (or empty grid space) still work
+compareGrid.addEventListener('dragover', (e) => {
+  if (!draggedEntry) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+});
+
+compareGrid.addEventListener('drop', (e) => {
+  if (!draggedEntry) return;
+  e.preventDefault();
+  // Capture state before clearDropIndicators nulls it out
+  const target = dropTargetEntry;
+  const after = dropInsertAfter;
+  clearDropIndicators();
+  if (target && target !== draggedEntry) {
+    reorderComparison(draggedEntry, target, after);
+  }
+});
+
+function showDropIndicator(targetCard, insertAfter) {
+  const refNode = insertAfter ? targetCard.nextSibling : targetCard;
+  if (dropIndicator.parentNode === compareGrid && dropIndicator.nextSibling === refNode) return;
+  compareGrid.insertBefore(dropIndicator, refNode);
+}
+
+function clearDropIndicators() {
+  if (dropIndicator.parentNode) dropIndicator.parentNode.removeChild(dropIndicator);
+  dropTargetEntry = null;
+}
 
 async function addComparison(fileOrBlob, dbKey) {
   const date = fileOrBlob.name ? await readExifDate(fileOrBlob) : null;
@@ -408,28 +446,70 @@ async function addComparison(fileOrBlob, dbKey) {
   card.append(img, canvas, metaEl, clearBtn);
   compareGrid.appendChild(card);
 
-  const index = comparisons.length;
   const entry = { img, poses: null, date, card, dbKey: key, selectedPerson: 0 };
   comparisons.push(entry);
 
   card.addEventListener('click', (e) => {
     if (e.target === clearBtn) return;
-    selectComparison(index);
+    const idx = comparisons.indexOf(entry);
+    if (idx < 0) return;
+    selectComparison(idx);
     // Open person modal if multiple people
     if (entry.poses && entry.poses.length > 1) {
-      openPersonModal(img, entry.poses, entry.selectedPerson, (idx) => {
-        entry.selectedPerson = idx;
+      openPersonModal(img, entry.poses, entry.selectedPerson, (sel) => {
+        entry.selectedPerson = sel;
         canvas.width = card.clientWidth;
         canvas.height = card.clientHeight;
         const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, card);
-        drawPoses(canvas, entry.poses, rect, idx);
+        drawPoses(canvas, entry.poses, rect, sel);
       });
     }
   });
 
   clearBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    removeComparison(index);
+    const idx = comparisons.indexOf(entry);
+    if (idx >= 0) removeComparison(idx);
+  });
+
+  // --- Drag-to-reorder ---
+  card.draggable = true;
+  card.addEventListener('dragstart', (e) => {
+    if (e.target === clearBtn) { e.preventDefault(); return; }
+    draggedEntry = entry;
+    dropTargetEntry = null;
+    dropInsertAfter = false;
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox requires data to be set
+    e.dataTransfer.setData('text/plain', '');
+    // Explicit drag ghost using the card, captured before .dragging opacity is applied
+    e.dataTransfer.setDragImage(card, card.clientWidth / 2, card.clientHeight / 2);
+    // Apply dragging class on next tick so it doesn't affect the drag image snapshot
+    setTimeout(() => card.classList.add('dragging'), 0);
+  });
+  card.addEventListener('dragend', () => {
+    card.classList.remove('dragging');
+    draggedEntry = null;
+    dropTargetEntry = null;
+    clearDropIndicators();
+  });
+  card.addEventListener('dragover', (e) => {
+    if (!draggedEntry || draggedEntry === entry) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    const rect = card.getBoundingClientRect();
+    const insertAfter = e.clientX > rect.left + rect.width / 2;
+    dropTargetEntry = entry;
+    dropInsertAfter = insertAfter;
+    showDropIndicator(card, insertAfter);
+  });
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    clearDropIndicators();
+    if (!draggedEntry || draggedEntry === entry) return;
+    reorderComparison(draggedEntry, entry, dropInsertAfter);
   });
 
   // Wait for image to actually load before continuing
@@ -453,7 +533,7 @@ async function addComparison(fileOrBlob, dbKey) {
     img.src = URL.createObjectURL(fileOrBlob);
   });
 
-  if (comparisons.filter(c => c).length === 1) selectComparison(index);
+  if (comparisons.length === 1) selectComparison(0);
 }
 
 function selectComparison(index) {
@@ -466,15 +546,45 @@ function selectComparison(index) {
 function removeComparison(index) {
   const entry = comparisons[index];
   if (!entry) return;
+  const wasSelected = (selectedCmpIndex === index);
   entry.card.remove();
   dbDelete(entry.dbKey);
-  comparisons[index] = null;
+  comparisons.splice(index, 1);
   updateClearAllVisibility();
-  if (selectedCmpIndex === index) {
+  if (wasSelected) {
     selectedCmpIndex = -1;
-    for (let i = 0; i < comparisons.length; i++) {
-      if (comparisons[i]) { selectComparison(i); break; }
+    if (comparisons.length > 0) {
+      selectComparison(Math.min(index, comparisons.length - 1));
     }
+  } else if (selectedCmpIndex > index) {
+    selectedCmpIndex--;
+    selectComparison(selectedCmpIndex);
+  }
+}
+
+function reorderComparison(srcEntry, targetEntry, insertAfter) {
+  const srcIdx = comparisons.indexOf(srcEntry);
+  let targetIdx = comparisons.indexOf(targetEntry);
+  if (srcIdx < 0 || targetIdx < 0 || srcEntry === targetEntry) return;
+
+  // Track selected entry so we can restore its index after reorder
+  const selEntry = (selectedCmpIndex >= 0) ? comparisons[selectedCmpIndex] : null;
+
+  // Remove src from array, then reinsert relative to target
+  comparisons.splice(srcIdx, 1);
+  targetIdx = comparisons.indexOf(targetEntry);
+  const insertIdx = insertAfter ? targetIdx + 1 : targetIdx;
+  comparisons.splice(insertIdx, 0, srcEntry);
+
+  // Sync DOM: insertBefore target (or target.nextSibling for after)
+  const refNode = insertAfter ? targetEntry.card.nextSibling : targetEntry.card;
+  compareGrid.insertBefore(srcEntry.card, refNode);
+
+  // Restore selection by entry
+  if (selEntry) {
+    const newSelIdx = comparisons.indexOf(selEntry);
+    selectedCmpIndex = -1;
+    if (newSelIdx >= 0) selectComparison(newSelIdx);
   }
 }
 
@@ -506,48 +616,42 @@ function clearError() {
   errorBanner.style.display = 'none';
 }
 const frameDurationInput = document.getElementById('frame-duration');
-const customDurationsToggle = document.getElementById('custom-durations-toggle');
 const customDurationsPanel = document.getElementById('custom-durations');
+const singleDurationRow = document.getElementById('single-duration-row');
 const firstFrameDuration = document.getElementById('first-frame-duration');
 const middleFrameDuration = document.getElementById('middle-frame-duration');
 const lastFrameDuration = document.getElementById('last-frame-duration');
+let customDurationsActive = false;
 
 // Sync default duration into custom fields when changed
 frameDurationInput.addEventListener('input', () => {
-  if (!customDurationsToggle.checked) {
-    firstFrameDuration.value = frameDurationInput.value;
-    middleFrameDuration.value = frameDurationInput.value;
-    lastFrameDuration.value = frameDurationInput.value;
-  }
+  firstFrameDuration.value = frameDurationInput.value;
+  middleFrameDuration.value = frameDurationInput.value;
+  lastFrameDuration.value = frameDurationInput.value;
 });
 
-// Toggle custom durations panel
-const frameDurationRow = frameDurationInput.closest('.setting-compact');
-customDurationsToggle.addEventListener('change', () => {
-  const custom = customDurationsToggle.checked;
-  customDurationsPanel.style.display = custom ? '' : 'none';
-  frameDurationRow.style.display = custom ? 'none' : '';
-  if (!custom) {
-    firstFrameDuration.value = frameDurationInput.value;
-    middleFrameDuration.value = frameDurationInput.value;
-    lastFrameDuration.value = frameDurationInput.value;
-  }
+// "customize" link opens per-frame controls
+document.getElementById('custom-durations-toggle').addEventListener('click', () => {
+  customDurationsActive = true;
+  singleDurationRow.style.display = 'none';
+  customDurationsPanel.style.display = '';
+});
+
+// "use single" link goes back
+document.getElementById('custom-durations-back').addEventListener('click', () => {
+  customDurationsActive = false;
+  customDurationsPanel.style.display = 'none';
+  singleDurationRow.style.display = '';
+  firstFrameDuration.value = frameDurationInput.value;
+  middleFrameDuration.value = frameDurationInput.value;
+  lastFrameDuration.value = frameDurationInput.value;
 });
 
 const alignPartSelect = document.getElementById('align-part');
 const scaleToggle = document.getElementById('scale-toggle');
 const scalePairSelect = document.getElementById('scale-pair');
-const scalePairRow = document.getElementById('scale-pair-row');
 const rotateToggle = document.getElementById('rotate-toggle');
 const rotatePairSelect = document.getElementById('rotate-pair');
-const rotatePairRow = document.getElementById('rotate-pair-row');
-
-scaleToggle.addEventListener('change', () => {
-  scalePairRow.style.display = scaleToggle.checked ? '' : 'none';
-});
-rotateToggle.addEventListener('change', () => {
-  rotatePairRow.style.display = rotateToggle.checked ? '' : 'none';
-});
 
 const PAIR_INDICES = {
   shoulders: [5, 6],
@@ -747,7 +851,7 @@ async function generateGif() {
   // Determine per-frame durations
   const defaultDur = parseFloat(frameDurationInput.value) || 0.5;
   let durFirst, durMiddle, durLast;
-  if (customDurationsToggle.checked) {
+  if (customDurationsActive) {
     durFirst = parseFloat(firstFrameDuration.value) || defaultDur;
     durMiddle = parseFloat(middleFrameDuration.value) || defaultDur;
     durLast = parseFloat(lastFrameDuration.value) || defaultDur;
@@ -826,12 +930,8 @@ clearAllBtn.addEventListener('click', async () => {
   // Clear reference
   window._refClear();
   // Clear all comparisons
-  for (let i = comparisons.length - 1; i >= 0; i--) {
-    if (comparisons[i]) {
-      comparisons[i].card.remove();
-      comparisons[i] = null;
-    }
-  }
+  for (const c of comparisons) c.card.remove();
+  comparisons.length = 0;
   selectedCmpIndex = -1;
   // Clear output
   outputGif.style.display = 'none';

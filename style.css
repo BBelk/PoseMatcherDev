@@ -157,45 +157,98 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 /* Options */
 
 #options-details {
-  border: 1px solid #2a2a2a; border-radius: 8px; background: #161616; flex: 1;
+  border: 1px solid #2a2a2a; border-radius: 8px; background: #161616;
 }
 
 #options-details summary {
-  cursor: pointer; padding: 0.5rem 0.7rem; font-size: 0.8rem;
-  color: #999; user-select: none; list-style: none;
+  cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.8rem;
+  color: #888; user-select: none; list-style: none;
+  letter-spacing: 0.03em;
 }
 #options-details summary::before { content: '\25b8  '; }
 #options-details[open] summary::before { content: '\25be  '; }
-#options-details[open] summary { border-bottom: 1px solid #2a2a2a; }
+#options-details[open] summary { border-bottom: 1px solid #222; }
 
 .options-body {
-  padding: 0.4rem 0.7rem 0.5rem; display: flex; flex-direction: column; gap: 0.15rem;
+  padding: 0.5rem 0.75rem 0.6rem;
+  display: flex; flex-direction: column; gap: 0.1rem;
+}
+
+/* Option groups */
+
+.opt-group {
+  padding: 0.35rem 0;
+}
+.opt-group + .opt-group {
+  border-top: 1px solid #222;
+}
+.opt-group-title {
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: #555; margin-bottom: 0.25rem;
 }
 
 /* Compact settings */
 
 .setting-compact {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 0.4rem; padding: 0.15rem 0; font-size: 0.78rem; color: #999;
+  gap: 0.5rem; padding: 0.2rem 0; font-size: 0.78rem; color: #aaa;
 }
-.setting-compact label { white-space: nowrap; }
+.setting-compact > label { white-space: nowrap; }
 
 .setting-compact input[type="number"] {
-  width: 50px; padding: 2px 4px; border: 1px solid #3a3a3a; border-radius: 4px;
-  background: #111; color: #ccc; font-size: 0.78rem; text-align: right;
+  width: 50px; padding: 2px 5px; border: 1px solid #333; border-radius: 4px;
+  background: #0e0e0e; color: #ccc; font-size: 0.78rem; text-align: right;
+}
+.setting-compact input[type="number"]:focus {
+  border-color: #6cf; outline: none;
 }
 .setting-compact select {
-  padding: 2px 4px; border: 1px solid #3a3a3a; border-radius: 4px;
-  background: #111; color: #ccc; font-size: 0.78rem;
+  padding: 2px 5px; border: 1px solid #333; border-radius: 4px;
+  background: #0e0e0e; color: #ccc; font-size: 0.78rem;
 }
-.setting-compact input[type="checkbox"] { accent-color: #6cf; }
-.setting-compact input[type="range"] { width: 70px; accent-color: #6cf; }
-.setting-compact span {
-  font-size: 0.78rem; color: #888; min-width: 2em; text-align: right; font-variant-numeric: tabular-nums;
+.setting-compact select:focus {
+  border-color: #6cf; outline: none;
+}
+.setting-compact input[type="checkbox"] { accent-color: #6cf; margin: 0; }
+.setting-compact input[type="range"] { width: 80px; accent-color: #6cf; }
+
+/* Inline sub-controls (checkbox + dropdown on same line, or number + unit) */
+
+.inline-sub {
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.78rem; color: #666; font-variant-numeric: tabular-nums;
+}
+.inline-sub span {
+  min-width: 2em; text-align: right; color: #888;
 }
 
-.dim-inputs { display: flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: #666; }
+/* Hide dropdown when its toggle is unchecked */
+.inline-sub input[type="checkbox"]:not(:checked) ~ select {
+  display: none;
+}
+
+/* Row of small toggles side by side */
+
+.setting-row-pair {
+  display: flex; gap: 1rem; padding: 0.2rem 0;
+}
+.setting-row-pair .setting-compact {
+  flex: none; gap: 0.3rem; padding: 0;
+}
+
+/* Dim inputs */
+
+.dim-inputs { display: flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: #555; }
 .dim-inputs input { width: 46px; }
+
+/* Text button (customize / use single) */
+
+.text-btn {
+  font-size: 0.7rem; color: #6cf; cursor: pointer;
+  border: none; background: none; padding: 0;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.text-btn:hover { color: #9df; }
 
 /* --- Comparisons --- */
 
@@ -212,6 +265,18 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 }
 .cmp-card:hover { border-color: #555; }
 .cmp-card.selected { border-color: #6cf; }
+.cmp-card.dragging { opacity: 0.4; }
+
+.drop-indicator {
+  flex-shrink: 0;
+  width: 4px;
+  height: 160px;
+  background: #6cf;
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(102, 204, 255, 0.7);
+  align-self: center;
+  pointer-events: none;
+}
 
 .cmp-card img { width: 100%; height: 100%; object-fit: contain; }
 .cmp-card canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
