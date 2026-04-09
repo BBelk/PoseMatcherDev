@@ -266,7 +266,10 @@ function drawOverlayForRef() {
     drawPoses(canvas, storedPoses.ref, rect, refSelectedPerson);
   } else {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (currentMode === 'human' && storedPoses.ref) drawNoHumansBanner(ctx);
+    if (currentMode === 'human' && storedPoses.ref) {
+      drawCustomPoint(ctx, storedPoses.refCustomPoint, rect);
+      drawNoHumansBanner(ctx);
+    }
   }
 }
 
@@ -283,7 +286,10 @@ function drawOverlayForCmp(entry) {
     drawPoses(canvas, entry.poses, rect, entry.selectedPerson);
   } else {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (currentMode === 'human' && entry.poses) drawNoHumansBanner(ctx);
+    if (currentMode === 'human' && entry.poses) {
+      drawCustomPoint(ctx, entry.customPoint, rect);
+      drawNoHumansBanner(ctx);
+    }
   }
 }
 
@@ -421,7 +427,7 @@ function openCustomPointModal(imgEl, currentPoint, onSelect) {
     if (e.target.closest('.upload-label') || e.target === fileInput || e.target === clearBtn) return;
     if (!box.classList.contains('has-image')) {
       fileInput.click();
-    } else if (currentMode === 'custom') {
+    } else if (currentMode === 'custom' || (storedPoses.ref && !storedPoses.ref.length)) {
       openCustomPointModal(img, storedPoses.refCustomPoint, (pt) => {
         storedPoses.refCustomPoint = pt;
         drawOverlayForRef();
@@ -652,7 +658,7 @@ async function addComparison(fileOrBlob, dbKey, restoredMeta) {
     const idx = comparisons.indexOf(entry);
     if (idx < 0) return;
     selectComparison(idx);
-    if (currentMode === 'custom') {
+    if (currentMode === 'custom' || (entry.poses && !entry.poses.length)) {
       openCustomPointModal(img, entry.customPoint, (pt) => {
         entry.customPoint = pt;
         drawOverlayForCmp(entry);
@@ -890,15 +896,19 @@ function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h, refCust
     };
   }
 
-  // Position anchor (single keypoint)
+  // Position anchor — fall back to each image's custom point if the keypoint is missing
   const anchorIdx = parseInt(alignPartSelect.value);
-  if (refKps[anchorIdx].confidence < thresh || cmpKps[anchorIdx].confidence < thresh) return null;
-  const refAnchor = toCanvas(refKps[anchorIdx], refRect);
-  const cmpAnchor = toCanvas(cmpKps[anchorIdx], cmpRect);
+  const refHasAnchor = refKps && refKps[anchorIdx] && refKps[anchorIdx].confidence >= thresh;
+  const cmpHasAnchor = cmpKps && cmpKps[anchorIdx] && cmpKps[anchorIdx].confidence >= thresh;
 
-  // Scale from pair
+  const refAnchor = refHasAnchor ? toCanvas(refKps[anchorIdx], refRect)
+    : { x: refRect.offsetX + refCustomPt.x * refRect.width, y: refRect.offsetY + refCustomPt.y * refRect.height };
+  const cmpAnchor = cmpHasAnchor ? toCanvas(cmpKps[anchorIdx], cmpRect)
+    : { x: cmpRect.offsetX + cmpCustomPt.x * cmpRect.width, y: cmpRect.offsetY + cmpCustomPt.y * cmpRect.height };
+
+  // Scale/rotation only work when BOTH images have the relevant keypoint pair
   let scale = 1;
-  if (scaleToggle.checked) {
+  if (scaleToggle.checked && refKps && cmpKps) {
     const [i1, i2] = PAIR_INDICES[scalePairSelect.value];
     const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
     const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
@@ -911,9 +921,8 @@ function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h, refCust
     }
   }
 
-  // Rotation from pair
   let rotation = 0;
-  if (rotateToggle.checked) {
+  if (rotateToggle.checked && refKps && cmpKps) {
     const [i1, i2] = PAIR_INDICES[rotatePairSelect.value];
     const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
     const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
@@ -1049,27 +1058,9 @@ async function generateGif() {
 
   if (!refImg.naturalWidth) { showError('Upload a reference image'); return; }
 
-  let validCmps;
-  if (currentMode === 'custom') {
-    validCmps = comparisons.filter(c => c && c.img && c.img.naturalWidth);
-    if (!validCmps.length) { showError('Add comparison images'); return; }
-  } else {
-    if (!storedPoses.ref || !storedPoses.ref.length) { showError('No pose detected in reference'); return; }
-    validCmps = comparisons.filter(c => c && c.poses && c.poses.length);
-    if (!validCmps.length) { showError('Add comparison images'); return; }
-
-    const anchorIdx = parseInt(alignPartSelect.value);
-    const anchorLabel = COCO_KEYPOINTS[anchorIdx];
-    const thresh = POSE_CONFIG.confidenceThreshold;
-
-    for (let i = 0; i < validCmps.length; i++) {
-      const kps = validCmps[i].poses[validCmps[i].selectedPerson].keypoints;
-      if (kps[anchorIdx].confidence < thresh) {
-        showError('No ' + anchorLabel + ' detected in comparison ' + (i + 1));
-        return;
-      }
-    }
-  }
+  // Any comparison with a loaded image is valid — missing poses fall back to the custom point
+  const validCmps = comparisons.filter(c => c && c.img && c.img.naturalWidth);
+  if (!validCmps.length) { showError('Add comparison images'); return; }
 
   const w = parseInt(document.getElementById('output-width').value) || refImg.naturalWidth || outputBox.clientWidth;
   const h = parseInt(document.getElementById('output-height').value) || refImg.naturalHeight || outputBox.clientHeight;
