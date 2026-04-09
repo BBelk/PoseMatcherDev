@@ -159,8 +159,133 @@ kpThreshSlider.addEventListener('input', () => {
 
 // ========== POSE STORAGE ==========
 
-const storedPoses = { ref: null };
+const storedPoses = { ref: null, refCustomPoint: { x: 0.5, y: 0.5 } };
 let refSelectedPerson = 0;
+
+async function saveRefMeta() {
+  try {
+    await dbPut('ref_meta', {
+      poses: storedPoses.ref,
+      customPoint: storedPoses.refCustomPoint,
+      selectedPerson: refSelectedPerson,
+    });
+  } catch (err) { console.error('Save ref meta failed:', err); }
+}
+
+async function saveCmpMeta(entry) {
+  try {
+    await dbPut(entry.dbKey + '_meta', {
+      poses: entry.poses,
+      customPoint: entry.customPoint,
+      selectedPerson: entry.selectedPerson,
+    });
+  } catch (err) { console.error('Save cmp meta failed:', err); }
+}
+
+async function ensureCmpPoses(entry) {
+  if (entry.poses) return;
+  if (!entry.img || !entry.img.naturalWidth) return;
+  try {
+    entry.poses = await estimatePoses(entry.img);
+    entry.selectedPerson = 0;
+    await saveCmpMeta(entry);
+  } catch (err) {
+    console.error('Comparison pose failed:', err);
+  }
+}
+
+// ========== TRACKING MODE ==========
+
+const modeSelect = document.getElementById('mode-select');
+let currentMode = localStorage.getItem('trackingMode') || 'human';
+modeSelect.value = currentMode;
+
+modeSelect.addEventListener('change', async () => {
+  currentMode = modeSelect.value;
+  localStorage.setItem('trackingMode', currentMode);
+  if (currentMode === 'human') {
+    if (window._refEnsurePoses) await window._refEnsurePoses();
+    for (const entry of comparisons) await ensureCmpPoses(entry);
+  }
+  drawOverlayForRef();
+  for (const entry of comparisons) drawOverlayForCmp(entry);
+});
+
+// Draws a full-width "No Human Detected" banner across the top of the canvas
+function drawNoHumansBanner(ctx) {
+  const text = 'No Human Detected';
+  const bh = 20;
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.fillRect(0, 0, ctx.canvas.width, bh);
+  ctx.font = 'bold 12px system-ui, sans-serif';
+  ctx.fillStyle = '#ffd84a';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, ctx.canvas.width / 2, bh / 2);
+}
+
+// Draws a crosshair circle for the custom point
+function drawCustomPoint(ctx, pt, rect) {
+  const cx = rect.offsetX + pt.x * rect.width;
+  const cy = rect.offsetY + pt.y * rect.height;
+  const r = 9;
+  // Outer black halo
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#000';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - r - 5, cy); ctx.lineTo(cx + r + 5, cy);
+  ctx.moveTo(cx, cy - r - 5); ctx.lineTo(cx, cy + r + 5);
+  ctx.stroke();
+  // Inner cyan
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#6cf';
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - r - 5, cy); ctx.lineTo(cx + r + 5, cy);
+  ctx.moveTo(cx, cy - r - 5); ctx.lineTo(cx, cy + r + 5);
+  ctx.stroke();
+  // White center dot
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawOverlayForRef() {
+  const box = document.getElementById('reference-box');
+  if (!box.classList.contains('has-image')) return;
+  const canvas = document.getElementById('ref-canvas');
+  const img = document.getElementById('ref-img');
+  canvas.width = box.clientWidth;
+  canvas.height = box.clientHeight;
+  const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, box);
+  const ctx = canvas.getContext('2d');
+  if (currentMode === 'custom') {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawCustomPoint(ctx, storedPoses.refCustomPoint, rect);
+  } else if (storedPoses.ref && storedPoses.ref.length) {
+    drawPoses(canvas, storedPoses.ref, rect, refSelectedPerson);
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (currentMode === 'human' && storedPoses.ref) drawNoHumansBanner(ctx);
+  }
+}
+
+function drawOverlayForCmp(entry) {
+  const canvas = entry.card.querySelector('canvas');
+  canvas.width = entry.card.clientWidth;
+  canvas.height = entry.card.clientHeight;
+  const rect = getDisplayRect(entry.img.naturalWidth, entry.img.naturalHeight, entry.card);
+  const ctx = canvas.getContext('2d');
+  if (currentMode === 'custom') {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawCustomPoint(ctx, entry.customPoint, rect);
+  } else if (entry.poses && entry.poses.length) {
+    drawPoses(canvas, entry.poses, rect, entry.selectedPerson);
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (currentMode === 'human' && entry.poses) drawNoHumansBanner(ctx);
+  }
+}
 
 // ========== PERSON SELECTION MODAL ==========
 
@@ -178,11 +303,14 @@ personModal.addEventListener('click', (e) => {
 function closeModal() {
   personModal.style.display = 'none';
   modalCallback = null;
+  modalCanvas.onclick = null;
 }
 
 function openPersonModal(imgEl, poses, currentSelected, onSelect) {
   if (poses.length <= 1) return;
 
+  personModal.querySelector('h3').textContent = 'Select a person';
+  personModal.querySelector('.modal-hint').textContent = 'Click a bounding box to select';
   personModal.style.display = '';
   modalCallback = onSelect;
 
@@ -221,10 +349,46 @@ function openPersonModal(imgEl, poses, currentSelected, onSelect) {
       if (mx >= b.minX && mx <= b.maxX && my >= b.minY && my <= b.maxY) {
         render(i);
         if (modalCallback) modalCallback(i);
-        setTimeout(closeModal, 300);
         return;
       }
     }
+  };
+}
+
+function openCustomPointModal(imgEl, currentPoint, onSelect) {
+  personModal.querySelector('h3').textContent = 'Place custom point';
+  personModal.querySelector('.modal-hint').textContent = 'Click anywhere to set the point';
+  personModal.style.display = '';
+
+  const maxW = window.innerWidth * 0.85;
+  const maxH = window.innerHeight * 0.7;
+  const scale = Math.min(maxW / imgEl.naturalWidth, maxH / imgEl.naturalHeight);
+  const cw = Math.round(imgEl.naturalWidth * scale);
+  const ch = Math.round(imgEl.naturalHeight * scale);
+  modalCanvas.width = cw;
+  modalCanvas.height = ch;
+
+  const ctx = modalCanvas.getContext('2d');
+  const rect = { offsetX: 0, offsetY: 0, width: cw, height: ch };
+  let point = { x: currentPoint.x, y: currentPoint.y };
+
+  function render() {
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(imgEl, 0, 0, cw, ch);
+    drawCustomPoint(ctx, point, rect);
+  }
+  render();
+
+  modalCanvas.onclick = (e) => {
+    const r = modalCanvas.getBoundingClientRect();
+    const mx = (e.clientX - r.left) * (cw / r.width);
+    const my = (e.clientY - r.top) * (ch / r.height);
+    point = {
+      x: Math.max(0, Math.min(1, mx / cw)),
+      y: Math.max(0, Math.min(1, my / ch)),
+    };
+    render();
+    onSelect(point);
   };
 }
 
@@ -257,11 +421,17 @@ function openPersonModal(imgEl, poses, currentSelected, onSelect) {
     if (e.target.closest('.upload-label') || e.target === fileInput || e.target === clearBtn) return;
     if (!box.classList.contains('has-image')) {
       fileInput.click();
+    } else if (currentMode === 'custom') {
+      openCustomPointModal(img, storedPoses.refCustomPoint, (pt) => {
+        storedPoses.refCustomPoint = pt;
+        drawOverlayForRef();
+        saveRefMeta();
+      });
     } else if (storedPoses.ref && storedPoses.ref.length > 1) {
       openPersonModal(img, storedPoses.ref, refSelectedPerson, (idx) => {
         refSelectedPerson = idx;
-        const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, box);
-        drawPoses(canvas, storedPoses.ref, rect, refSelectedPerson);
+        drawOverlayForRef();
+        saveRefMeta();
       });
     }
   });
@@ -279,8 +449,10 @@ function openPersonModal(imgEl, poses, currentSelected, onSelect) {
     status.textContent = '';
     meta.textContent = '';
     storedPoses.ref = null;
+    storedPoses.refCustomPoint = { x: 0.5, y: 0.5 };
     refSelectedPerson = 0;
     dbDelete('ref');
+    dbDelete('ref_meta');
     updateClearAllVisibility();
   }
 
@@ -288,10 +460,14 @@ function openPersonModal(imgEl, poses, currentSelected, onSelect) {
     readExifDate(file).then(date => { meta.textContent = date || ''; });
     // Persist blob
     file.arrayBuffer().then(buf => dbPut('ref', new Blob([buf], { type: file.type })));
-    loadBlob(file);
+    // Fresh upload: discard any prior pose state so detection (or custom default) re-runs
+    storedPoses.ref = null;
+    storedPoses.refCustomPoint = { x: 0.5, y: 0.5 };
+    refSelectedPerson = 0;
+    loadBlob(file, null);
   }
 
-  function loadBlob(blob) {
+  function loadBlob(blob, restoredMeta) {
     const url = URL.createObjectURL(blob);
     img.onload = async () => {
       URL.revokeObjectURL(url);
@@ -309,15 +485,34 @@ function openPersonModal(imgEl, poses, currentSelected, onSelect) {
       }
       document.getElementById('output-width').value = outW;
       document.getElementById('output-height').value = outH;
+
+      if (restoredMeta) {
+        storedPoses.ref = restoredMeta.poses || null;
+        storedPoses.refCustomPoint = restoredMeta.customPoint || { x: 0.5, y: 0.5 };
+        refSelectedPerson = restoredMeta.selectedPerson || 0;
+      }
+
       updateClearAllVisibility();
-      await runDetection();
+
+      if (!storedPoses.ref && currentMode === 'human') {
+        await runDetection();
+      } else {
+        drawOverlayForRef();
+        // Persist (ensures custom point + default selection are saved on fresh uploads)
+        if (!restoredMeta) await saveRefMeta();
+      }
     };
     img.src = url;
   }
 
-  // Expose for restore and clear all
+  // Expose for restore, clear all, and lazy pose detection on mode switch
   window._refClear = clearRef;
   window._refLoadBlob = loadBlob;
+  window._refEnsurePoses = async () => {
+    if (storedPoses.ref) return;
+    if (!img.naturalWidth) return;
+    await runDetection();
+  };
 
   async function runDetection() {
     status.textContent = 'Detecting pose...';
@@ -325,8 +520,8 @@ function openPersonModal(imgEl, poses, currentSelected, onSelect) {
       const poses = await estimatePoses(img);
       storedPoses.ref = poses;
       refSelectedPerson = 0; // default to leftmost
-      const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, box);
-      drawPoses(canvas, poses, rect, refSelectedPerson);
+      drawOverlayForRef();
+      await saveRefMeta();
       const total = poses.length;
       status.textContent = total + ' person' + (total !== 1 ? 's' : '') + ' detected';
       setTimeout(() => { status.textContent = ''; }, 2000);
@@ -338,9 +533,7 @@ function openPersonModal(imgEl, poses, currentSelected, onSelect) {
 
   window.addEventListener('resize', () => {
     if (!box.classList.contains('has-image')) return;
-    canvas.width = box.clientWidth;
-    canvas.height = box.clientHeight;
-    runDetection();
+    drawOverlayForRef();
   });
 })();
 
@@ -417,7 +610,7 @@ function clearDropIndicators() {
   dropTargetEntry = null;
 }
 
-async function addComparison(fileOrBlob, dbKey) {
+async function addComparison(fileOrBlob, dbKey, restoredMeta) {
   const date = fileOrBlob.name ? await readExifDate(fileOrBlob) : null;
 
   // Persist with a stable unique key
@@ -446,7 +639,12 @@ async function addComparison(fileOrBlob, dbKey) {
   card.append(img, canvas, metaEl, clearBtn);
   compareGrid.appendChild(card);
 
-  const entry = { img, poses: null, date, card, dbKey: key, selectedPerson: 0 };
+  const entry = { img, poses: null, date, card, dbKey: key, selectedPerson: 0, customPoint: { x: 0.5, y: 0.5 } };
+  if (restoredMeta) {
+    entry.poses = restoredMeta.poses || null;
+    entry.selectedPerson = restoredMeta.selectedPerson || 0;
+    entry.customPoint = restoredMeta.customPoint || { x: 0.5, y: 0.5 };
+  }
   comparisons.push(entry);
 
   card.addEventListener('click', (e) => {
@@ -454,14 +652,18 @@ async function addComparison(fileOrBlob, dbKey) {
     const idx = comparisons.indexOf(entry);
     if (idx < 0) return;
     selectComparison(idx);
-    // Open person modal if multiple people
-    if (entry.poses && entry.poses.length > 1) {
+    if (currentMode === 'custom') {
+      openCustomPointModal(img, entry.customPoint, (pt) => {
+        entry.customPoint = pt;
+        drawOverlayForCmp(entry);
+        saveCmpMeta(entry);
+      });
+    } else if (entry.poses && entry.poses.length > 1) {
+      // Open person modal if multiple people
       openPersonModal(img, entry.poses, entry.selectedPerson, (sel) => {
         entry.selectedPerson = sel;
-        canvas.width = card.clientWidth;
-        canvas.height = card.clientHeight;
-        const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, card);
-        drawPoses(canvas, entry.poses, rect, sel);
+        drawOverlayForCmp(entry);
+        saveCmpMeta(entry);
       });
     }
   });
@@ -517,15 +719,20 @@ async function addComparison(fileOrBlob, dbKey) {
     img.onload = async () => {
       canvas.width = card.clientWidth;
       canvas.height = card.clientHeight;
-      try {
-        const poses = await estimatePoses(img);
-        entry.poses = poses;
-        entry.selectedPerson = 0;
-        const rect = getDisplayRect(img.naturalWidth, img.naturalHeight, card);
-        drawPoses(canvas, poses, rect, 0);
-      } catch (err) {
-        console.error('Comparison pose failed:', err);
+      if (!entry.poses && currentMode === 'human') {
+        try {
+          const poses = await estimatePoses(img);
+          entry.poses = poses;
+          entry.selectedPerson = 0;
+          await saveCmpMeta(entry);
+        } catch (err) {
+          console.error('Comparison pose failed:', err);
+        }
+      } else if (!restoredMeta) {
+        // Fresh upload in custom mode — persist default custom point
+        await saveCmpMeta(entry);
       }
+      drawOverlayForCmp(entry);
       updateClearAllVisibility();
       resolve();
     };
@@ -549,6 +756,7 @@ function removeComparison(index) {
   const wasSelected = (selectedCmpIndex === index);
   entry.card.remove();
   dbDelete(entry.dbKey);
+  dbDelete(entry.dbKey + '_meta');
   comparisons.splice(index, 1);
   updateClearAllVisibility();
   if (wasSelected) {
@@ -661,7 +869,7 @@ const PAIR_INDICES = {
 
 // --- Alignment helper ---
 
-function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h) {
+function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h, refCustomPt, cmpCustomPt) {
   const thresh = POSE_CONFIG.confidenceThreshold;
   const container = { clientWidth: w, clientHeight: h };
   const refRect = getDisplayRect(refImgEl.naturalWidth, refImgEl.naturalHeight, container);
@@ -669,6 +877,17 @@ function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h) {
 
   function toCanvas(kp, rect) {
     return { x: rect.offsetX + kp.x * rect.width, y: rect.offsetY + kp.y * rect.height };
+  }
+
+  // Custom point mode: translation-only alignment using the placed points
+  if (currentMode === 'custom') {
+    return {
+      refCx: refRect.offsetX + refCustomPt.x * refRect.width,
+      refCy: refRect.offsetY + refCustomPt.y * refRect.height,
+      cmpCx: cmpRect.offsetX + cmpCustomPt.x * cmpRect.width,
+      cmpCy: cmpRect.offsetY + cmpCustomPt.y * cmpRect.height,
+      scale: 1, rotation: 0, refRect, cmpRect,
+    };
   }
 
   // Position anchor (single keypoint)
@@ -753,9 +972,12 @@ function renderCmpFrame(cmp, w, h, frameNum) {
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, w, h);
 
+  const refKps = storedPoses.ref && storedPoses.ref[refSelectedPerson] ? storedPoses.ref[refSelectedPerson].keypoints : null;
+  const cmpKps = cmp.poses && cmp.poses[cmp.selectedPerson] ? cmp.poses[cmp.selectedPerson].keypoints : null;
   const t = computeAlignTransform(
-    storedPoses.ref[refSelectedPerson].keypoints, cmp.poses[cmp.selectedPerson].keypoints,
-    refImg, cmp.img, w, h
+    refKps, cmpKps,
+    refImg, cmp.img, w, h,
+    storedPoses.refCustomPoint, cmp.customPoint
   );
   if (!t) return null;
 
@@ -826,20 +1048,26 @@ async function generateGif() {
   resetOutput();
 
   if (!refImg.naturalWidth) { showError('Upload a reference image'); return; }
-  if (!storedPoses.ref || !storedPoses.ref.length) { showError('No pose detected in reference'); return; }
 
-  const validCmps = comparisons.filter(c => c && c.poses && c.poses.length);
-  if (!validCmps.length) { showError('Add comparison images'); return; }
+  let validCmps;
+  if (currentMode === 'custom') {
+    validCmps = comparisons.filter(c => c && c.img && c.img.naturalWidth);
+    if (!validCmps.length) { showError('Add comparison images'); return; }
+  } else {
+    if (!storedPoses.ref || !storedPoses.ref.length) { showError('No pose detected in reference'); return; }
+    validCmps = comparisons.filter(c => c && c.poses && c.poses.length);
+    if (!validCmps.length) { showError('Add comparison images'); return; }
 
-  const anchorIdx = parseInt(alignPartSelect.value);
-  const anchorLabel = COCO_KEYPOINTS[anchorIdx];
-  const thresh = POSE_CONFIG.confidenceThreshold;
+    const anchorIdx = parseInt(alignPartSelect.value);
+    const anchorLabel = COCO_KEYPOINTS[anchorIdx];
+    const thresh = POSE_CONFIG.confidenceThreshold;
 
-  for (let i = 0; i < validCmps.length; i++) {
-    const kps = validCmps[i].poses[validCmps[i].selectedPerson].keypoints;
-    if (kps[anchorIdx].confidence < thresh) {
-      showError('No ' + anchorLabel + ' detected in comparison ' + (i + 1));
-      return;
+    for (let i = 0; i < validCmps.length; i++) {
+      const kps = validCmps[i].poses[validCmps[i].selectedPerson].keypoints;
+      if (kps[anchorIdx].confidence < thresh) {
+        showError('No ' + anchorLabel + ' detected in comparison ' + (i + 1));
+        return;
+      }
     }
   }
 
@@ -953,16 +1181,22 @@ clearAllBtn.addEventListener('click', async () => {
 (async function restore() {
   try {
     const keys = await dbAllKeys();
+    const keySet = new Set(keys.map(String));
     // Restore reference
-    if (keys.includes('ref')) {
+    if (keySet.has('ref')) {
       const blob = await dbGet('ref');
-      if (blob) window._refLoadBlob(blob);
+      const refMeta = keySet.has('ref_meta') ? await dbGet('ref_meta') : null;
+      if (blob) window._refLoadBlob(blob, refMeta);
     }
-    // Restore comparisons (sorted by key for consistent order)
-    const cmpKeys = keys.filter(k => String(k).startsWith('cmp_')).sort();
+    // Restore comparisons (sorted by key for consistent order, excluding _meta entries)
+    const cmpKeys = keys.filter(k => {
+      const s = String(k);
+      return s.startsWith('cmp_') && !s.endsWith('_meta');
+    }).sort();
     for (const key of cmpKeys) {
       const blob = await dbGet(key);
-      if (blob) await addComparison(blob, key);
+      const meta = keySet.has(key + '_meta') ? await dbGet(key + '_meta') : null;
+      if (blob) await addComparison(blob, key, meta);
     }
   } catch (err) {
     console.error('Restore failed:', err);
