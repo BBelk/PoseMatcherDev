@@ -147,14 +147,22 @@ const scoreThreshVal = document.getElementById('score-thresh-val');
 const kpThreshSlider = document.getElementById('kp-thresh');
 const kpThreshVal = document.getElementById('kp-thresh-val');
 
+// Restore thresholds
+const _savedScoreThresh = localStorage.getItem('scoreThresh');
+if (_savedScoreThresh) { scoreThreshSlider.value = _savedScoreThresh; POSE_CONFIG.scoreThreshold = parseFloat(_savedScoreThresh); scoreThreshVal.textContent = _savedScoreThresh; }
+const _savedKpThresh = localStorage.getItem('kpThresh');
+if (_savedKpThresh) { kpThreshSlider.value = _savedKpThresh; POSE_CONFIG.confidenceThreshold = parseFloat(_savedKpThresh); kpThreshVal.textContent = _savedKpThresh; }
+
 scoreThreshSlider.addEventListener('input', () => {
   POSE_CONFIG.scoreThreshold = parseFloat(scoreThreshSlider.value);
   scoreThreshVal.textContent = scoreThreshSlider.value;
+  localStorage.setItem('scoreThresh', scoreThreshSlider.value);
 });
 
 kpThreshSlider.addEventListener('input', () => {
   POSE_CONFIG.confidenceThreshold = parseFloat(kpThreshSlider.value);
   kpThreshVal.textContent = kpThreshSlider.value;
+  localStorage.setItem('kpThresh', kpThreshSlider.value);
 });
 
 // ========== POSE STORAGE ==========
@@ -813,6 +821,14 @@ const generateBtn = document.getElementById('generate-btn');
 const overlayCanvas = document.getElementById('overlay-canvas');
 const outputBox = document.getElementById('output-box');
 const outputGif = document.getElementById('output-gif');
+const outputVideo = document.getElementById('output-video');
+const outputFormatSelect = document.getElementById('output-format');
+const saveBtn = document.getElementById('save-btn');
+const _savedOutputFormat = localStorage.getItem('outputFormat');
+if (_savedOutputFormat) outputFormatSelect.value = _savedOutputFormat;
+outputFormatSelect.addEventListener('change', () => localStorage.setItem('outputFormat', outputFormatSelect.value));
+let lastOutputBlob = null;
+let lastOutputFormat = 'gif';
 const refImg = document.getElementById('ref-img');
 const errorBanner = document.getElementById('error-banner');
 
@@ -829,6 +845,17 @@ function clearError() {
   errorBanner.textContent = '';
   errorBanner.style.display = 'none';
 }
+// Restore output toggles
+const includeRefToggle = document.getElementById('include-ref-toggle');
+const loopToggle = document.getElementById('loop-toggle');
+const frameCounterToggle = document.getElementById('frame-counter-toggle');
+if (localStorage.getItem('includeRef') !== null) includeRefToggle.checked = localStorage.getItem('includeRef') === 'true';
+if (localStorage.getItem('loop') !== null) loopToggle.checked = localStorage.getItem('loop') === 'true';
+if (localStorage.getItem('frameCounter') === 'true') frameCounterToggle.checked = true;
+includeRefToggle.addEventListener('change', () => localStorage.setItem('includeRef', includeRefToggle.checked));
+loopToggle.addEventListener('change', () => localStorage.setItem('loop', loopToggle.checked));
+frameCounterToggle.addEventListener('change', () => localStorage.setItem('frameCounter', frameCounterToggle.checked));
+
 const frameDurationInput = document.getElementById('frame-duration');
 const customDurationsPanel = document.getElementById('custom-durations');
 const singleDurationRow = document.getElementById('single-duration-row');
@@ -837,16 +864,36 @@ const middleFrameDuration = document.getElementById('middle-frame-duration');
 const lastFrameDuration = document.getElementById('last-frame-duration');
 let customDurationsActive = false;
 
+// Restore frame durations
+const _savedFrameDur = localStorage.getItem('frameDuration');
+if (_savedFrameDur) { frameDurationInput.value = _savedFrameDur; firstFrameDuration.value = _savedFrameDur; middleFrameDuration.value = _savedFrameDur; lastFrameDuration.value = _savedFrameDur; }
+const _savedFirstDur = localStorage.getItem('firstFrameDuration');
+const _savedMiddleDur = localStorage.getItem('middleFrameDuration');
+const _savedLastDur = localStorage.getItem('lastFrameDuration');
+if (localStorage.getItem('customDurationsActive') === 'true') {
+  customDurationsActive = true;
+  singleDurationRow.style.display = 'none';
+  customDurationsPanel.style.display = '';
+  if (_savedFirstDur) firstFrameDuration.value = _savedFirstDur;
+  if (_savedMiddleDur) middleFrameDuration.value = _savedMiddleDur;
+  if (_savedLastDur) lastFrameDuration.value = _savedLastDur;
+}
+
 // Sync default duration into custom fields when changed
 frameDurationInput.addEventListener('input', () => {
   firstFrameDuration.value = frameDurationInput.value;
   middleFrameDuration.value = frameDurationInput.value;
   lastFrameDuration.value = frameDurationInput.value;
+  localStorage.setItem('frameDuration', frameDurationInput.value);
 });
+firstFrameDuration.addEventListener('change', () => localStorage.setItem('firstFrameDuration', firstFrameDuration.value));
+middleFrameDuration.addEventListener('change', () => localStorage.setItem('middleFrameDuration', middleFrameDuration.value));
+lastFrameDuration.addEventListener('change', () => localStorage.setItem('lastFrameDuration', lastFrameDuration.value));
 
 // "customize" link opens per-frame controls
 document.getElementById('custom-durations-toggle').addEventListener('click', () => {
   customDurationsActive = true;
+  localStorage.setItem('customDurationsActive', 'true');
   singleDurationRow.style.display = 'none';
   customDurationsPanel.style.display = '';
 });
@@ -854,6 +901,7 @@ document.getElementById('custom-durations-toggle').addEventListener('click', () 
 // "use single" link goes back
 document.getElementById('custom-durations-back').addEventListener('click', () => {
   customDurationsActive = false;
+  localStorage.setItem('customDurationsActive', 'false');
   customDurationsPanel.style.display = 'none';
   singleDurationRow.style.display = '';
   firstFrameDuration.value = frameDurationInput.value;
@@ -861,11 +909,56 @@ document.getElementById('custom-durations-back').addEventListener('click', () =>
   lastFrameDuration.value = frameDurationInput.value;
 });
 
+// --- Transitions ---
+const transitionToggle = document.getElementById('transition-toggle');
+const transitionTypeSelect = document.getElementById('transition-type');
+const transitionDurationInput = document.getElementById('transition-duration');
+const transitionDurationRow = document.getElementById('transition-duration-row');
+
+// Restore from localStorage
+if (localStorage.getItem('transitionEnabled') === 'true') transitionToggle.checked = true;
+const _savedTransType = localStorage.getItem('transitionType');
+if (_savedTransType) transitionTypeSelect.value = _savedTransType;
+const _savedTransDur = localStorage.getItem('transitionDuration');
+if (_savedTransDur) transitionDurationInput.value = _savedTransDur;
+
+function updateTransitionRowVisibility() {
+  transitionDurationRow.style.display = transitionToggle.checked ? '' : 'none';
+}
+updateTransitionRowVisibility();
+
+transitionToggle.addEventListener('change', () => {
+  localStorage.setItem('transitionEnabled', transitionToggle.checked);
+  updateTransitionRowVisibility();
+});
+transitionTypeSelect.addEventListener('change', () => {
+  localStorage.setItem('transitionType', transitionTypeSelect.value);
+});
+transitionDurationInput.addEventListener('change', () => {
+  localStorage.setItem('transitionDuration', transitionDurationInput.value);
+});
+
 const alignPartSelect = document.getElementById('align-part');
 const scaleToggle = document.getElementById('scale-toggle');
 const scalePairSelect = document.getElementById('scale-pair');
 const rotateToggle = document.getElementById('rotate-toggle');
 const rotatePairSelect = document.getElementById('rotate-pair');
+
+// Restore alignment settings
+const _savedAlignPart = localStorage.getItem('alignPart');
+if (_savedAlignPart) alignPartSelect.value = _savedAlignPart;
+if (localStorage.getItem('scaleEnabled') !== null) scaleToggle.checked = localStorage.getItem('scaleEnabled') === 'true';
+const _savedScalePair = localStorage.getItem('scalePair');
+if (_savedScalePair) scalePairSelect.value = _savedScalePair;
+if (localStorage.getItem('rotateEnabled') !== null) rotateToggle.checked = localStorage.getItem('rotateEnabled') === 'true';
+const _savedRotatePair = localStorage.getItem('rotatePair');
+if (_savedRotatePair) rotatePairSelect.value = _savedRotatePair;
+
+alignPartSelect.addEventListener('change', () => localStorage.setItem('alignPart', alignPartSelect.value));
+scaleToggle.addEventListener('change', () => localStorage.setItem('scaleEnabled', scaleToggle.checked));
+scalePairSelect.addEventListener('change', () => localStorage.setItem('scalePair', scalePairSelect.value));
+rotateToggle.addEventListener('change', () => localStorage.setItem('rotateEnabled', rotateToggle.checked));
+rotatePairSelect.addEventListener('change', () => localStorage.setItem('rotatePair', rotatePairSelect.value));
 
 const PAIR_INDICES = {
   shoulders: [5, 6],
@@ -945,7 +1038,7 @@ function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h, refCust
 // --- Frame rendering ---
 
 function drawFrameCounter(ctx, num, w) {
-  if (!document.getElementById('frame-counter-toggle').checked) return;
+  if (!frameCounterToggle.checked) return;
   const text = String(num);
   ctx.font = 'bold 14px system-ui, sans-serif';
   const metrics = ctx.measureText(text);
@@ -1032,9 +1125,21 @@ function canvasToUint8(canvas) {
   });
 }
 
+// Alpha-blend two canvases into a new canvas: result = A*(1-alpha) + B*alpha
+function blendFrames(canvasA, canvasB, alpha, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(canvasA, 0, 0);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(canvasB, 0, 0);
+  ctx.globalAlpha = 1;
+  return c;
+}
+
 // --- Generate GIF ---
 
-generateBtn.addEventListener('click', generateGif);
+generateBtn.addEventListener('click', generate);
 
 function showProgress(msg) {
   const ph = outputBox.querySelector('.placeholder');
@@ -1047,12 +1152,16 @@ function showProgress(msg) {
 function resetOutput() {
   outputGif.style.display = 'none';
   outputGif.src = '';
+  outputVideo.style.display = 'none';
+  outputVideo.src = '';
   overlayCanvas.style.display = 'none';
   outputBox.classList.add('empty');
   showProgress('Preparing...');
+  lastOutputBlob = null;
+  saveBtn.style.display = 'none';
 }
 
-async function generateGif() {
+async function generate() {
   clearError();
   resetOutput();
 
@@ -1064,8 +1173,8 @@ async function generateGif() {
 
   const w = parseInt(document.getElementById('output-width').value) || refImg.naturalWidth || outputBox.clientWidth;
   const h = parseInt(document.getElementById('output-height').value) || refImg.naturalHeight || outputBox.clientHeight;
-  const includeRef = document.getElementById('include-ref-toggle').checked;
-  const loopGif = document.getElementById('loop-toggle').checked;
+  const includeRef = includeRefToggle.checked;
+  const loopGif = loopToggle.checked;
 
   // Determine per-frame durations
   const defaultDur = parseFloat(frameDurationInput.value) || 0.5;
@@ -1080,18 +1189,71 @@ async function generateGif() {
 
   showProgress('Rendering frames...');
 
-  // Render all frames to PNG
+  // Render main frames (one per included source) as canvases
   let frameNum = 1;
-  const frames = [];
-  if (includeRef) {
-    frames.push(await canvasToUint8(renderRefFrame(w, h, frameNum++)));
-  }
+  const mainCanvases = [];
+  if (includeRef) mainCanvases.push(renderRefFrame(w, h, frameNum++));
   for (const cmp of validCmps) {
-    const canvas = renderCmpFrame(cmp, w, h, frameNum++);
-    if (canvas) frames.push(await canvasToUint8(canvas));
+    const c = renderCmpFrame(cmp, w, h, frameNum++);
+    if (c) mainCanvases.push(c);
   }
 
-  if (!frames.length) { showError('No frames to encode'); return; }
+  if (!mainCanvases.length) { showError('No frames to encode'); return; }
+
+  // Build full frame list with per-frame durations, inserting transition blends if enabled
+  const useTransitions = transitionToggle.checked && mainCanvases.length > 1;
+  const tType = transitionTypeSelect.value;
+  let tDur = parseFloat(transitionDurationInput.value) || 0;
+  // Cap transition at the shortest frame duration so it never exceeds a hold
+  const minFrameDur = Math.min(durFirst, durMiddle, durLast);
+  if (tDur > minFrameDur) tDur = minFrameDur;
+
+  const transitionFps = 20;
+  const transitionSteps = Math.max(2, Math.round(tDur * transitionFps));
+  const stepDur = tDur > 0 ? tDur / transitionSteps : 0;
+
+  const frameCanvases = [];
+  const frameDurs = [];
+
+  for (let i = 0; i < mainCanvases.length; i++) {
+    const isLast = i === mainCanvases.length - 1;
+    const rawDur = i === 0 ? durFirst : isLast ? durLast : durMiddle;
+    // Eat transition time from outgoing frame's hold (last frame keeps full dur)
+    const holdDur = (useTransitions && tDur > 0 && !isLast) ? Math.max(0.01, rawDur - tDur) : rawDur;
+
+    frameCanvases.push(mainCanvases[i]);
+    frameDurs.push(holdDur);
+
+    if (useTransitions && tDur > 0 && !isLast) {
+      const next = mainCanvases[i + 1];
+      for (let k = 1; k < transitionSteps; k++) {
+        const alpha = k / transitionSteps;
+        frameCanvases.push(blendFrames(mainCanvases[i], next, alpha, w, h));
+        frameDurs.push(stepDur);
+      }
+    }
+  }
+
+  // Loop-back transition: fade from last frame back to first, ending on first frame
+  const format = outputFormatSelect.value;
+  if (loopGif && useTransitions && tDur > 0 && mainCanvases.length > 1) {
+    // Eat transition time from last frame's hold
+    frameDurs[frameDurs.length - 1] = Math.max(0.01, frameDurs[frameDurs.length - 1] - tDur);
+    const last = mainCanvases[mainCanvases.length - 1];
+    const first = mainCanvases[0];
+    for (let k = 1; k < transitionSteps; k++) {
+      const alpha = k / transitionSteps;
+      frameCanvases.push(blendFrames(last, first, alpha, w, h));
+      frameDurs.push(stepDur);
+    }
+    // Land on the first frame
+    frameCanvases.push(first);
+    frameDurs.push(0.01);
+  }
+
+  // Encode all frame canvases to PNG
+  const frames = [];
+  for (const c of frameCanvases) frames.push(await canvasToUint8(c));
 
   // Load ffmpeg
   const ff = await loadFFmpeg();
@@ -1106,30 +1268,60 @@ async function generateGif() {
   const lastIdx = frames.length - 1;
   let concatList = '';
   for (let i = 0; i < frames.length; i++) {
-    const dur = i === 0 ? durFirst : i === lastIdx ? durLast : durMiddle;
     concatList += "file 'frame_" + String(i).padStart(3, '0') + ".png'\n";
-    concatList += 'duration ' + dur + '\n';
+    concatList += 'duration ' + frameDurs[i] + '\n';
   }
   // Concat demuxer needs the last file repeated without duration to avoid truncation
   concatList += "file 'frame_" + String(lastIdx).padStart(3, '0') + ".png'\n";
   await ff.writeFile('frames.txt', new TextEncoder().encode(concatList));
 
-  // Generate GIF with palette for quality
-  showProgress('Encoding GIF...');
-  await ff.exec([
-    '-f', 'concat', '-safe', '0', '-i', 'frames.txt',
-    '-vf', 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
-    '-loop', loopGif ? '0' : '-1',
-    'output.gif',
-  ]);
+  if (format === 'mp4') {
+    // Encode MP4 with H.264
+    showProgress('Encoding MP4...');
+    // Ensure even dimensions (required by libx264)
+    const vf = (w % 2 || h % 2)
+      ? 'pad=ceil(iw/2)*2:ceil(ih/2)*2'
+      : null;
+    const args = ['-f', 'concat', '-safe', '0', '-i', 'frames.txt'];
+    if (vf) args.push('-vf', vf);
+    args.push(
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '23',
+      '-movflags', '+faststart',
+      'output.mp4',
+    );
+    await ff.exec(args);
 
-  // Read result and display
-  const gifData = await ff.readFile('output.gif');
-  const gifBlob = new Blob([gifData], { type: 'image/gif' });
-  outputGif.src = URL.createObjectURL(gifBlob);
-  outputGif.style.display = 'block';
+    const mp4Data = await ff.readFile('output.mp4');
+    const mp4Blob = new Blob([mp4Data], { type: 'video/mp4' });
+    lastOutputBlob = mp4Blob;
+    lastOutputFormat = 'mp4';
+    outputVideo.src = URL.createObjectURL(mp4Blob);
+    outputVideo.loop = loopGif;
+    outputVideo.style.display = 'block';
+    outputVideo.play();
+    outputGif.style.display = 'none';
+  } else {
+    // Generate GIF with palette for quality
+    showProgress('Encoding GIF...');
+    await ff.exec([
+      '-f', 'concat', '-safe', '0', '-i', 'frames.txt',
+      '-vf', 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+      '-loop', loopGif ? '0' : '-1',
+      'output.gif',
+    ]);
+
+    const gifData = await ff.readFile('output.gif');
+    const gifBlob = new Blob([gifData], { type: 'image/gif' });
+    lastOutputBlob = gifBlob;
+    lastOutputFormat = 'gif';
+    outputGif.src = URL.createObjectURL(gifBlob);
+    outputGif.style.display = 'block';
+    outputVideo.style.display = 'none';
+  }
+
   overlayCanvas.style.display = 'none';
   clearError();
+  saveBtn.style.display = '';
   // Expand output box and hide placeholder
   outputBox.classList.remove('empty');
   const ph = outputBox.querySelector('.placeholder');
@@ -1140,8 +1332,18 @@ async function generateGif() {
     await ff.deleteFile('frame_' + String(i).padStart(3, '0') + '.png');
   }
   await ff.deleteFile('frames.txt');
-  await ff.deleteFile('output.gif');
+  try { await ff.deleteFile('output.gif'); } catch (_) {}
+  try { await ff.deleteFile('output.mp4'); } catch (_) {}
 }
+
+saveBtn.addEventListener('click', () => {
+  if (!lastOutputBlob) return;
+  const ext = lastOutputFormat === 'mp4' ? 'mp4' : 'gif';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(lastOutputBlob);
+  a.download = 'posematcher.' + ext;
+  a.click();
+});
 
 // ========== CLEAR ALL ==========
 
@@ -1153,15 +1355,17 @@ clearAllBtn.addEventListener('click', async () => {
   comparisons.length = 0;
   selectedCmpIndex = -1;
   // Clear output
+  lastOutputBlob = null;
+  saveBtn.style.display = 'none';
   outputGif.style.display = 'none';
   outputGif.src = '';
+  outputVideo.style.display = 'none';
+  outputVideo.src = '';
   overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   clearError();
   outputBox.classList.add('empty');
   const ph2 = outputBox.querySelector('.placeholder');
   if (ph2) ph2.style.display = '';
-  outputGif.style.display = 'none';
-  outputGif.src = '';
   // Clear DB
   await dbClear();
   updateClearAllVisibility();

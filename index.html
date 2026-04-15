@@ -19,11 +19,13 @@
       <div class="section-header">
         <h2>Output</h2>
         <button id="generate-btn">Generate</button>
+        <button id="save-btn" style="display:none">Save Output</button>
       </div>
       <div id="output-box" class="pose-box empty">
         <span class="placeholder">No output yet</span>
         <canvas id="overlay-canvas"></canvas>
         <img id="output-gif" class="output-gif">
+        <video id="output-video" class="output-gif" muted playsinline></video>
       </div>
     </section>
 
@@ -113,6 +115,13 @@
               <input type="number" id="output-height" min="1" max="9999" step="1" placeholder="H">
             </span>
           </div>
+          <div class="setting-compact">
+            <label for="output-format">Format</label>
+            <select id="output-format">
+              <option value="gif" selected>GIF</option>
+              <option value="mp4">MP4</option>
+            </select>
+          </div>
           <div class="setting-row-pair">
             <div class="setting-compact">
               <label for="include-ref-toggle">Include reference</label>
@@ -152,6 +161,19 @@
               <span class="inline-sub"><input type="number" id="last-frame-duration" min="0.1" max="10" step="0.1" value="0.5"> s</span>
             </div>
             <label class="text-btn" id="custom-durations-back">use single</label>
+          </div>
+          <div class="setting-compact">
+            <label for="transition-toggle">Frame transitions</label>
+            <span class="inline-sub">
+              <input type="checkbox" id="transition-toggle">
+              <select id="transition-type">
+                <option value="fade" selected>Fade</option>
+              </select>
+            </span>
+          </div>
+          <div class="setting-compact" id="transition-duration-row" style="display:none">
+            <label for="transition-duration">Transition time</label>
+            <span class="inline-sub"><input type="number" id="transition-duration" min="0.05" max="5" step="0.05" value="0.25"> s</span>
           </div>
         </div>
 

@@ -16,7 +16,7 @@ body {
 }
 
 h1 { font-size: 1.4rem; letter-spacing: 0.02em; }
-h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; text-transform: uppercase; letter-spacing: 0.05em; }
+h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* --- Top bar --- */
 
@@ -76,7 +76,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 
 .pose-box .status {
   position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
-  font-size: 0.7rem; color: #aaa; background: rgba(0,0,0,0.6);
+  font-size: 0.7rem; color: #fff; background: rgba(0,0,0,0.6);
   padding: 2px 8px; border-radius: 4px; pointer-events: none; white-space: nowrap;
 }
 .pose-box .status:empty { display: none; }
@@ -85,14 +85,14 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 
 .upload-prompt {
   display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
-  color: #ccc; pointer-events: none;
+  color: #fff; pointer-events: none;
 }
 .upload-prompt p { font-size: 0.8rem; }
 
 .upload-label {
   pointer-events: auto; cursor: pointer; padding: 0.35rem 0.9rem;
   border: 1px solid #444; border-radius: 6px; font-size: 0.8rem;
-  color: #bbb; background: #222; transition: background 0.15s, border-color 0.15s;
+  color: #fff; background: #222; transition: background 0.15s, border-color 0.15s;
 }
 .upload-label:hover { background: #2a2a2a; border-color: #666; }
 
@@ -108,7 +108,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 
 .img-meta {
   position: absolute; bottom: 6px; right: 6px; font-size: 0.6rem;
-  color: #888; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px; pointer-events: none;
+  color: #fff; background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 3px; pointer-events: none;
 }
 .img-meta:empty { display: none; }
 
@@ -130,7 +130,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
   width: 100%; height: 100%; object-fit: contain;
 }
 
-#output-box .placeholder { font-size: 0.8rem; color: #555; }
+#output-box .placeholder { font-size: 0.8rem; color: #fff; }
 
 #output-box.empty { aspect-ratio: unset; height: 80px; }
 
@@ -139,12 +139,12 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 .section-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
 .section-header h2 { margin-bottom: 0; }
 
-#generate-btn {
+#generate-btn, #save-btn {
   padding: 0.2rem 0.75rem; border: 1px solid #555; border-radius: 5px;
   font-size: 0.75rem; color: #eee; background: #383838;
   cursor: pointer; transition: background 0.15s, border-color 0.15s;
 }
-#generate-btn:hover { background: #4a4a4a; border-color: #888; }
+#generate-btn:hover, #save-btn:hover { background: #4a4a4a; border-color: #888; }
 
 /* --- Action bar (Options) --- */
 
@@ -162,7 +162,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 
 #options-details summary {
   cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.8rem;
-  color: #888; user-select: none; list-style: none;
+  color: #fff; user-select: none; list-style: none;
   letter-spacing: 0.03em;
 }
 #options-details summary::before { content: '\25b8  '; }
@@ -184,27 +184,27 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 }
 .opt-group-title {
   font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
-  letter-spacing: 0.08em; color: #555; margin-bottom: 0.25rem;
+  letter-spacing: 0.08em; color: #fff; margin-bottom: 0.25rem;
 }
 
 /* Compact settings */
 
 .setting-compact {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 0.5rem; padding: 0.2rem 0; font-size: 0.78rem; color: #aaa;
+  gap: 0.5rem; padding: 0.2rem 0; font-size: 0.78rem; color: #fff;
 }
 .setting-compact > label { white-space: nowrap; }
 
 .setting-compact input[type="number"] {
   width: 50px; padding: 2px 5px; border: 1px solid #333; border-radius: 4px;
-  background: #0e0e0e; color: #ccc; font-size: 0.78rem; text-align: right;
+  background: #0e0e0e; color: #fff; font-size: 0.78rem; text-align: right;
 }
 .setting-compact input[type="number"]:focus {
   border-color: #6cf; outline: none;
 }
 .setting-compact select {
   padding: 2px 5px; border: 1px solid #333; border-radius: 4px;
-  background: #0e0e0e; color: #ccc; font-size: 0.78rem;
+  background: #0e0e0e; color: #fff; font-size: 0.78rem;
 }
 .setting-compact select:focus {
   border-color: #6cf; outline: none;
@@ -216,10 +216,10 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 
 .inline-sub {
   display: flex; align-items: center; gap: 0.35rem;
-  font-size: 0.78rem; color: #666; font-variant-numeric: tabular-nums;
+  font-size: 0.78rem; color: #fff; font-variant-numeric: tabular-nums;
 }
 .inline-sub span {
-  min-width: 2em; text-align: right; color: #888;
+  min-width: 2em; text-align: right; color: #fff;
 }
 
 /* Hide dropdown when its toggle is unchecked */
@@ -238,7 +238,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
 
 /* Dim inputs */
 
-.dim-inputs { display: flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: #555; }
+.dim-inputs { display: flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: #fff; }
 .dim-inputs input { width: 46px; }
 
 /* Text button (customize / use single) */
@@ -310,10 +310,10 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
   display: flex; align-items: center; justify-content: space-between;
 }
 
-.modal-header h3 { font-size: 1rem; color: #ccc; }
+.modal-header h3 { font-size: 1rem; color: #fff; }
 
 #modal-close {
-  border: none; background: none; color: #999; font-size: 1.4rem;
+  border: none; background: none; color: #fff; font-size: 1.4rem;
   cursor: pointer; line-height: 1;
 }
 #modal-close:hover { color: #fff; }
@@ -322,4 +322,4 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #777; t
   max-width: 100%; max-height: 70vh; border-radius: 6px; cursor: pointer;
 }
 
-.modal-hint { font-size: 0.75rem; color: #666; text-align: center; }
+.modal-hint { font-size: 0.75rem; color: #fff; text-align: center; }
