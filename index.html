@@ -22,7 +22,7 @@
         <button id="save-btn" style="display:none">Save Output</button>
       </div>
       <div id="output-box" class="pose-box empty">
-        <span class="placeholder">No output yet</span>
+        <span class="placeholder">Upload Reference and Comparison Images, then click Generate</span>
         <canvas id="overlay-canvas"></canvas>
         <img id="output-gif" class="output-gif">
         <video id="output-video" class="output-gif" muted playsinline></video>
@@ -222,6 +222,6 @@
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
   <script src="lib/ffmpeg/ffmpeg.js"></script>
   <script src="pose.js"></script>
-  <script src="index.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

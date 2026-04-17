@@ -1,3 +1,7 @@
+:root {
+  --box-bg: #252525;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -63,12 +67,12 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1a1a1a;
+  background: var(--box-bg);
   transition: border-color 0.2s, background 0.2s;
 }
 
 .pose-box.dragover { border-color: #6cf; background: #1a2a2a; }
-.pose-box.has-image { border-style: solid; border-color: #2a2a2a; }
+.pose-box.has-image { border-style: solid; border-color: #333; }
 
 .pose-box canvas {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
@@ -157,7 +161,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 /* Options */
 
 #options-details {
-  border: 1px solid #2a2a2a; border-radius: 8px; background: #161616;
+  border: 1px solid #333; border-radius: 8px; background: var(--box-bg);
 }
 
 #options-details summary {
@@ -260,8 +264,8 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 
 .cmp-card {
   position: relative; width: 120px; height: 160px; flex-shrink: 0;
-  border: 2px solid #2a2a2a; border-radius: 8px; overflow: hidden;
-  background: #1a1a1a; cursor: pointer; transition: border-color 0.15s;
+  border: 2px solid #333; border-radius: 8px; overflow: hidden;
+  background: var(--box-bg); cursor: pointer; transition: border-color 0.15s;
 }
 .cmp-card:hover { border-color: #555; }
 .cmp-card.selected { border-color: #6cf; }
@@ -283,9 +287,8 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 .cmp-card .img-meta { position: absolute; bottom: 3px; right: 3px; font-size: 0.5rem; }
 .cmp-card .clear-btn {
   display: block; top: 3px; right: 3px; width: 18px; height: 18px;
-  font-size: 0.7rem; opacity: 0; transition: opacity 0.15s;
+  font-size: 0.7rem;
 }
-.cmp-card:hover .clear-btn { opacity: 1; }
 
 #compare-upload { display: inline-block; }
 #compare-upload .upload-label { padding: 0.25rem 0.7rem; font-size: 0.78rem; }
@@ -301,7 +304,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 }
 
 .modal-content {
-  background: #1a1a1a; border: 1px solid #333; border-radius: 10px;
+  background: var(--box-bg); border: 1px solid #444; border-radius: 10px;
   padding: 1rem; max-width: 90vw; max-height: 90vh;
   display: flex; flex-direction: column; gap: 0.5rem;
 }
@@ -323,3 +326,44 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 }
 
 .modal-hint { font-size: 0.75rem; color: #fff; text-align: center; }
+
+/* --- Mobile layout --- */
+
+@media (max-width: 640px) {
+  #twin-boxes {
+    display: contents;
+  }
+
+  /* Output section (first child) */
+  #twin-boxes > section:first-child {
+    order: 1;
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Action bar (Options) */
+  #action-bar {
+    order: 2;
+  }
+
+  /* Reference section (second child) */
+  #twin-boxes > section:last-child {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 0.75rem;
+  }
+
+  #compare-section {
+    order: 4;
+  }
+
+  #top-bar {
+    order: 0;
+  }
+
+  #error-banner {
+    order: 0;
+  }
+}

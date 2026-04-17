@@ -1,0 +1,496 @@
+import { storedPoses, refSelectedPerson, comparisons, currentMode } from './state.js';
+
+const generateBtn = document.getElementById('generate-btn');
+const overlayCanvas = document.getElementById('overlay-canvas');
+const outputBox = document.getElementById('output-box');
+const outputGif = document.getElementById('output-gif');
+const outputVideo = document.getElementById('output-video');
+const outputFormatSelect = document.getElementById('output-format');
+const saveBtn = document.getElementById('save-btn');
+const refImg = document.getElementById('ref-img');
+const errorBanner = document.getElementById('error-banner');
+
+const includeRefToggle = document.getElementById('include-ref-toggle');
+const loopToggle = document.getElementById('loop-toggle');
+const frameCounterToggle = document.getElementById('frame-counter-toggle');
+const frameDurationInput = document.getElementById('frame-duration');
+const customDurationsPanel = document.getElementById('custom-durations');
+const singleDurationRow = document.getElementById('single-duration-row');
+const firstFrameDuration = document.getElementById('first-frame-duration');
+const middleFrameDuration = document.getElementById('middle-frame-duration');
+const lastFrameDuration = document.getElementById('last-frame-duration');
+const transitionToggle = document.getElementById('transition-toggle');
+const transitionTypeSelect = document.getElementById('transition-type');
+const transitionDurationInput = document.getElementById('transition-duration');
+const alignPartSelect = document.getElementById('align-part');
+const scaleToggle = document.getElementById('scale-toggle');
+const scalePairSelect = document.getElementById('scale-pair');
+const rotateToggle = document.getElementById('rotate-toggle');
+const rotatePairSelect = document.getElementById('rotate-pair');
+
+let lastOutputBlob = null;
+let lastOutputFormat = 'gif';
+let customDurationsActive = localStorage.getItem('customDurationsActive') === 'true';
+
+const PAIR_INDICES = {
+  shoulders: [5, 6],
+  hips: [11, 12],
+  eyes: [1, 2],
+};
+
+let ffmpeg = null;
+
+async function loadFFmpeg() {
+  if (ffmpeg && ffmpeg.loaded) return ffmpeg;
+
+  showProgress('Loading FFmpeg...');
+  ffmpeg = new FFmpegWASM.FFmpeg();
+
+  ffmpeg.on('progress', ({ progress }) => {
+    if (progress > 0) showProgress('Encoding: ' + Math.round(progress * 100) + '%');
+  });
+
+  await ffmpeg.load({
+    coreURL: 'lib/ffmpeg/ffmpeg-core.js',
+    wasmURL: 'lib/ffmpeg/ffmpeg-core.wasm',
+  });
+
+  return ffmpeg;
+}
+
+function canvasToUint8(canvas) {
+  return new Promise(resolve => {
+    canvas.toBlob(async (blob) => {
+      resolve(new Uint8Array(await blob.arrayBuffer()));
+    }, 'image/png');
+  });
+}
+
+function blendFrames(canvasA, canvasB, alpha, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(canvasA, 0, 0);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(canvasB, 0, 0);
+  ctx.globalAlpha = 1;
+  return c;
+}
+
+function showProgress(msg) {
+  const ph = outputBox.querySelector('.placeholder');
+  if (ph) {
+    ph.textContent = msg;
+    ph.style.display = '';
+  }
+}
+
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.style.display = 'block';
+}
+
+function clearError() {
+  errorBanner.textContent = '';
+  errorBanner.style.display = 'none';
+}
+
+function resetOutput() {
+  outputGif.style.display = 'none';
+  outputGif.src = '';
+  outputVideo.style.display = 'none';
+  outputVideo.src = '';
+  overlayCanvas.style.display = 'none';
+  outputBox.classList.add('empty');
+  showProgress('Preparing...');
+  lastOutputBlob = null;
+  saveBtn.style.display = 'none';
+}
+
+function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h, refCustomPt, cmpCustomPt) {
+  const thresh = POSE_CONFIG.confidenceThreshold;
+  const container = { clientWidth: w, clientHeight: h };
+  const refRect = getDisplayRect(refImgEl.naturalWidth, refImgEl.naturalHeight, container);
+  const cmpRect = getDisplayRect(cmpImgEl.naturalWidth, cmpImgEl.naturalHeight, container);
+
+  function toCanvas(kp, rect) {
+    return { x: rect.offsetX + kp.x * rect.width, y: rect.offsetY + kp.y * rect.height };
+  }
+
+  if (currentMode === 'custom') {
+    return {
+      refCx: refRect.offsetX + refCustomPt.x * refRect.width,
+      refCy: refRect.offsetY + refCustomPt.y * refRect.height,
+      cmpCx: cmpRect.offsetX + cmpCustomPt.x * cmpRect.width,
+      cmpCy: cmpRect.offsetY + cmpCustomPt.y * cmpRect.height,
+      scale: 1, rotation: 0, refRect, cmpRect,
+    };
+  }
+
+  const anchorIdx = parseInt(alignPartSelect.value);
+  const refHasAnchor = refKps && refKps[anchorIdx] && refKps[anchorIdx].confidence >= thresh;
+  const cmpHasAnchor = cmpKps && cmpKps[anchorIdx] && cmpKps[anchorIdx].confidence >= thresh;
+
+  const refAnchor = refHasAnchor ? toCanvas(refKps[anchorIdx], refRect)
+    : { x: refRect.offsetX + refCustomPt.x * refRect.width, y: refRect.offsetY + refCustomPt.y * refRect.height };
+  const cmpAnchor = cmpHasAnchor ? toCanvas(cmpKps[anchorIdx], cmpRect)
+    : { x: cmpRect.offsetX + cmpCustomPt.x * cmpRect.width, y: cmpRect.offsetY + cmpCustomPt.y * cmpRect.height };
+
+  let scale = 1;
+  if (scaleToggle.checked && refKps && cmpKps) {
+    const [i1, i2] = PAIR_INDICES[scalePairSelect.value];
+    const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
+    const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
+    if (refOk && cmpOk) {
+      const refA = toCanvas(refKps[i1], refRect), refB = toCanvas(refKps[i2], refRect);
+      const cmpA = toCanvas(cmpKps[i1], cmpRect), cmpB = toCanvas(cmpKps[i2], cmpRect);
+      const refDist = Math.hypot(refB.x - refA.x, refB.y - refA.y);
+      const cmpDist = Math.hypot(cmpB.x - cmpA.x, cmpB.y - cmpA.y);
+      if (cmpDist > 0) scale = refDist / cmpDist;
+    }
+  }
+
+  let rotation = 0;
+  if (rotateToggle.checked && refKps && cmpKps) {
+    const [i1, i2] = PAIR_INDICES[rotatePairSelect.value];
+    const refOk = refKps[i1].confidence >= thresh && refKps[i2].confidence >= thresh;
+    const cmpOk = cmpKps[i1].confidence >= thresh && cmpKps[i2].confidence >= thresh;
+    if (refOk && cmpOk) {
+      const refA = toCanvas(refKps[i1], refRect), refB = toCanvas(refKps[i2], refRect);
+      const cmpA = toCanvas(cmpKps[i1], cmpRect), cmpB = toCanvas(cmpKps[i2], cmpRect);
+      const refAngle = Math.atan2(refB.y - refA.y, refB.x - refA.x);
+      const cmpAngle = Math.atan2(cmpB.y - cmpA.y, cmpB.x - cmpA.x);
+      rotation = refAngle - cmpAngle;
+    }
+  }
+
+  return {
+    refCx: refAnchor.x, refCy: refAnchor.y,
+    cmpCx: cmpAnchor.x, cmpCy: cmpAnchor.y,
+    scale, rotation, refRect, cmpRect,
+  };
+}
+
+function drawFrameCounter(ctx, num, w) {
+  if (!frameCounterToggle.checked) return;
+  const text = String(num);
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  const metrics = ctx.measureText(text);
+  const pad = 5;
+  const bw = metrics.width + pad * 2;
+  const bh = 20;
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(w - bw - 6, 6, bw, bh);
+  ctx.fillStyle = '#fff';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, w - bw / 2 - 6, 6 + bh / 2);
+}
+
+function renderRefFrame(w, h, frameNum) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, w, h);
+  const rect = getDisplayRect(refImg.naturalWidth, refImg.naturalHeight, { clientWidth: w, clientHeight: h });
+  ctx.drawImage(refImg, rect.offsetX, rect.offsetY, rect.width, rect.height);
+  drawFrameCounter(ctx, frameNum, w);
+  return canvas;
+}
+
+function renderCmpFrame(cmp, w, h, frameNum) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, w, h);
+
+  const refKps = storedPoses.ref && storedPoses.ref[refSelectedPerson] ? storedPoses.ref[refSelectedPerson].keypoints : null;
+  const cmpKps = cmp.poses && cmp.poses[cmp.selectedPerson] ? cmp.poses[cmp.selectedPerson].keypoints : null;
+  const t = computeAlignTransform(
+    refKps, cmpKps,
+    refImg, cmp.img, w, h,
+    storedPoses.refCustomPoint, cmp.customPoint
+  );
+  if (!t) return null;
+
+  ctx.save();
+  ctx.translate(t.refCx, t.refCy);
+  ctx.rotate(t.rotation);
+  ctx.scale(t.scale, t.scale);
+  ctx.translate(-t.cmpCx, -t.cmpCy);
+  ctx.drawImage(cmp.img, t.cmpRect.offsetX, t.cmpRect.offsetY, t.cmpRect.width, t.cmpRect.height);
+  ctx.restore();
+
+  drawFrameCounter(ctx, frameNum, w);
+  return canvas;
+}
+
+async function generate() {
+  clearError();
+  resetOutput();
+
+  if (!refImg.naturalWidth) { showError('Upload a reference image'); return; }
+
+  const validCmps = comparisons.filter(c => c && c.img && c.img.naturalWidth);
+  if (!validCmps.length) { showError('Add comparison images'); return; }
+
+  const w = parseInt(document.getElementById('output-width').value) || refImg.naturalWidth || outputBox.clientWidth;
+  const h = parseInt(document.getElementById('output-height').value) || refImg.naturalHeight || outputBox.clientHeight;
+  const includeRef = includeRefToggle.checked;
+  const loopGif = loopToggle.checked;
+
+  const defaultDur = parseFloat(frameDurationInput.value) || 0.5;
+  let durFirst, durMiddle, durLast;
+  if (customDurationsActive) {
+    durFirst = parseFloat(firstFrameDuration.value) || defaultDur;
+    durMiddle = parseFloat(middleFrameDuration.value) || defaultDur;
+    durLast = parseFloat(lastFrameDuration.value) || defaultDur;
+  } else {
+    durFirst = durMiddle = durLast = defaultDur;
+  }
+
+  showProgress('Rendering frames...');
+
+  let frameNum = 1;
+  const mainCanvases = [];
+  if (includeRef) mainCanvases.push(renderRefFrame(w, h, frameNum++));
+  for (const cmp of validCmps) {
+    const c = renderCmpFrame(cmp, w, h, frameNum++);
+    if (c) mainCanvases.push(c);
+  }
+
+  if (!mainCanvases.length) { showError('No frames to encode'); return; }
+
+  const useTransitions = transitionToggle.checked && mainCanvases.length > 1;
+  const tType = transitionTypeSelect.value;
+  let tDur = parseFloat(transitionDurationInput.value) || 0;
+  const minFrameDur = Math.min(durFirst, durMiddle, durLast);
+  if (tDur > minFrameDur) tDur = minFrameDur;
+
+  const transitionFps = 20;
+  const transitionSteps = Math.max(2, Math.round(tDur * transitionFps));
+  const stepDur = tDur > 0 ? tDur / transitionSteps : 0;
+
+  const frameCanvases = [];
+  const frameDurs = [];
+
+  for (let i = 0; i < mainCanvases.length; i++) {
+    const isLast = i === mainCanvases.length - 1;
+    const rawDur = i === 0 ? durFirst : isLast ? durLast : durMiddle;
+    const holdDur = (useTransitions && tDur > 0 && !isLast) ? Math.max(0.01, rawDur - tDur) : rawDur;
+
+    frameCanvases.push(mainCanvases[i]);
+    frameDurs.push(holdDur);
+
+    if (useTransitions && tDur > 0 && !isLast) {
+      const next = mainCanvases[i + 1];
+      for (let k = 1; k < transitionSteps; k++) {
+        const alpha = k / transitionSteps;
+        frameCanvases.push(blendFrames(mainCanvases[i], next, alpha, w, h));
+        frameDurs.push(stepDur);
+      }
+    }
+  }
+
+  const format = outputFormatSelect.value;
+  if (loopGif && useTransitions && tDur > 0 && mainCanvases.length > 1) {
+    frameDurs[frameDurs.length - 1] = Math.max(0.01, frameDurs[frameDurs.length - 1] - tDur);
+    const last = mainCanvases[mainCanvases.length - 1];
+    const first = mainCanvases[0];
+    for (let k = 1; k < transitionSteps; k++) {
+      const alpha = k / transitionSteps;
+      frameCanvases.push(blendFrames(last, first, alpha, w, h));
+      frameDurs.push(stepDur);
+    }
+    frameCanvases.push(first);
+    frameDurs.push(0.01);
+  }
+
+  const frames = [];
+  for (const c of frameCanvases) frames.push(await canvasToUint8(c));
+
+  const ff = await loadFFmpeg();
+
+  showProgress('Writing frames...');
+  for (let i = 0; i < frames.length; i++) {
+    await ff.writeFile('frame_' + String(i).padStart(3, '0') + '.png', frames[i]);
+  }
+
+  const lastIdx = frames.length - 1;
+  let concatList = '';
+  for (let i = 0; i < frames.length; i++) {
+    concatList += "file 'frame_" + String(i).padStart(3, '0') + ".png'\n";
+    concatList += 'duration ' + frameDurs[i] + '\n';
+  }
+  concatList += "file 'frame_" + String(lastIdx).padStart(3, '0') + ".png'\n";
+  await ff.writeFile('frames.txt', new TextEncoder().encode(concatList));
+
+  if (format === 'mp4') {
+    showProgress('Encoding MP4...');
+    const vf = (w % 2 || h % 2) ? 'pad=ceil(iw/2)*2:ceil(ih/2)*2' : null;
+    const args = ['-f', 'concat', '-safe', '0', '-i', 'frames.txt'];
+    if (vf) args.push('-vf', vf);
+    args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '23', '-movflags', '+faststart', 'output.mp4');
+    await ff.exec(args);
+
+    const mp4Data = await ff.readFile('output.mp4');
+    const mp4Blob = new Blob([mp4Data], { type: 'video/mp4' });
+    lastOutputBlob = mp4Blob;
+    lastOutputFormat = 'mp4';
+    outputVideo.src = URL.createObjectURL(mp4Blob);
+    outputVideo.loop = loopGif;
+    outputVideo.style.display = 'block';
+    outputVideo.play();
+    outputGif.style.display = 'none';
+  } else {
+    showProgress('Encoding GIF...');
+    await ff.exec([
+      '-f', 'concat', '-safe', '0', '-i', 'frames.txt',
+      '-vf', 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+      '-loop', loopGif ? '0' : '-1',
+      'output.gif',
+    ]);
+
+    const gifData = await ff.readFile('output.gif');
+    const gifBlob = new Blob([gifData], { type: 'image/gif' });
+    lastOutputBlob = gifBlob;
+    lastOutputFormat = 'gif';
+    outputGif.src = URL.createObjectURL(gifBlob);
+    outputGif.style.display = 'block';
+    outputVideo.style.display = 'none';
+  }
+
+  overlayCanvas.style.display = 'none';
+  clearError();
+  saveBtn.style.display = '';
+  outputBox.classList.remove('empty');
+  const ph = outputBox.querySelector('.placeholder');
+  if (ph) ph.style.display = 'none';
+
+  for (let i = 0; i < frames.length; i++) {
+    await ff.deleteFile('frame_' + String(i).padStart(3, '0') + '.png');
+  }
+  await ff.deleteFile('frames.txt');
+  try { await ff.deleteFile('output.gif'); } catch (_) {}
+  try { await ff.deleteFile('output.mp4'); } catch (_) {}
+}
+
+export function setupOutput() {
+  errorBanner.addEventListener('click', () => {
+    errorBanner.style.display = 'none';
+  });
+
+  const _savedOutputFormat = localStorage.getItem('outputFormat');
+  if (_savedOutputFormat) outputFormatSelect.value = _savedOutputFormat;
+  outputFormatSelect.addEventListener('change', () => localStorage.setItem('outputFormat', outputFormatSelect.value));
+
+  if (localStorage.getItem('includeRef') !== null) includeRefToggle.checked = localStorage.getItem('includeRef') === 'true';
+  if (localStorage.getItem('loop') !== null) loopToggle.checked = localStorage.getItem('loop') === 'true';
+  if (localStorage.getItem('frameCounter') === 'true') frameCounterToggle.checked = true;
+  includeRefToggle.addEventListener('change', () => localStorage.setItem('includeRef', includeRefToggle.checked));
+  loopToggle.addEventListener('change', () => localStorage.setItem('loop', loopToggle.checked));
+  frameCounterToggle.addEventListener('change', () => localStorage.setItem('frameCounter', frameCounterToggle.checked));
+
+  const _savedFrameDur = localStorage.getItem('frameDuration');
+  if (_savedFrameDur) { frameDurationInput.value = _savedFrameDur; firstFrameDuration.value = _savedFrameDur; middleFrameDuration.value = _savedFrameDur; lastFrameDuration.value = _savedFrameDur; }
+  const _savedFirstDur = localStorage.getItem('firstFrameDuration');
+  const _savedMiddleDur = localStorage.getItem('middleFrameDuration');
+  const _savedLastDur = localStorage.getItem('lastFrameDuration');
+  if (customDurationsActive) {
+    singleDurationRow.style.display = 'none';
+    customDurationsPanel.style.display = '';
+    if (_savedFirstDur) firstFrameDuration.value = _savedFirstDur;
+    if (_savedMiddleDur) middleFrameDuration.value = _savedMiddleDur;
+    if (_savedLastDur) lastFrameDuration.value = _savedLastDur;
+  }
+
+  frameDurationInput.addEventListener('input', () => {
+    firstFrameDuration.value = frameDurationInput.value;
+    middleFrameDuration.value = frameDurationInput.value;
+    lastFrameDuration.value = frameDurationInput.value;
+    localStorage.setItem('frameDuration', frameDurationInput.value);
+  });
+  firstFrameDuration.addEventListener('change', () => localStorage.setItem('firstFrameDuration', firstFrameDuration.value));
+  middleFrameDuration.addEventListener('change', () => localStorage.setItem('middleFrameDuration', middleFrameDuration.value));
+  lastFrameDuration.addEventListener('change', () => localStorage.setItem('lastFrameDuration', lastFrameDuration.value));
+
+  document.getElementById('custom-durations-toggle').addEventListener('click', () => {
+    customDurationsActive = true;
+    localStorage.setItem('customDurationsActive', 'true');
+    singleDurationRow.style.display = 'none';
+    customDurationsPanel.style.display = '';
+  });
+
+  document.getElementById('custom-durations-back').addEventListener('click', () => {
+    customDurationsActive = false;
+    localStorage.setItem('customDurationsActive', 'false');
+    customDurationsPanel.style.display = 'none';
+    singleDurationRow.style.display = '';
+    firstFrameDuration.value = frameDurationInput.value;
+    middleFrameDuration.value = frameDurationInput.value;
+    lastFrameDuration.value = frameDurationInput.value;
+  });
+
+  if (localStorage.getItem('transitionEnabled') === 'true') transitionToggle.checked = true;
+  const _savedTransType = localStorage.getItem('transitionType');
+  if (_savedTransType) transitionTypeSelect.value = _savedTransType;
+  const _savedTransDur = localStorage.getItem('transitionDuration');
+  if (_savedTransDur) transitionDurationInput.value = _savedTransDur;
+
+  const transitionDurationRow = document.getElementById('transition-duration-row');
+  function updateTransitionRowVisibility() {
+    transitionDurationRow.style.display = transitionToggle.checked ? '' : 'none';
+  }
+  updateTransitionRowVisibility();
+
+  transitionToggle.addEventListener('change', () => {
+    localStorage.setItem('transitionEnabled', transitionToggle.checked);
+    updateTransitionRowVisibility();
+  });
+  transitionTypeSelect.addEventListener('change', () => localStorage.setItem('transitionType', transitionTypeSelect.value));
+  transitionDurationInput.addEventListener('change', () => localStorage.setItem('transitionDuration', transitionDurationInput.value));
+
+  const _savedAlignPart = localStorage.getItem('alignPart');
+  if (_savedAlignPart) alignPartSelect.value = _savedAlignPart;
+  if (localStorage.getItem('scaleEnabled') !== null) scaleToggle.checked = localStorage.getItem('scaleEnabled') === 'true';
+  const _savedScalePair = localStorage.getItem('scalePair');
+  if (_savedScalePair) scalePairSelect.value = _savedScalePair;
+  if (localStorage.getItem('rotateEnabled') !== null) rotateToggle.checked = localStorage.getItem('rotateEnabled') === 'true';
+  const _savedRotatePair = localStorage.getItem('rotatePair');
+  if (_savedRotatePair) rotatePairSelect.value = _savedRotatePair;
+
+  alignPartSelect.addEventListener('change', () => localStorage.setItem('alignPart', alignPartSelect.value));
+  scaleToggle.addEventListener('change', () => localStorage.setItem('scaleEnabled', scaleToggle.checked));
+  scalePairSelect.addEventListener('change', () => localStorage.setItem('scalePair', scalePairSelect.value));
+  rotateToggle.addEventListener('change', () => localStorage.setItem('rotateEnabled', rotateToggle.checked));
+  rotatePairSelect.addEventListener('change', () => localStorage.setItem('rotatePair', rotatePairSelect.value));
+
+  generateBtn.addEventListener('click', generate);
+
+  saveBtn.addEventListener('click', () => {
+    if (!lastOutputBlob) return;
+    const ext = lastOutputFormat === 'mp4' ? 'mp4' : 'gif';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(lastOutputBlob);
+    a.download = 'posematcher.' + ext;
+    a.click();
+  });
+}
+
+export function clearOutput() {
+  lastOutputBlob = null;
+  saveBtn.style.display = 'none';
+  outputGif.style.display = 'none';
+  outputGif.src = '';
+  outputVideo.style.display = 'none';
+  outputVideo.src = '';
+  overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  clearError();
+  outputBox.classList.add('empty');
+  const ph = outputBox.querySelector('.placeholder');
+  if (ph) ph.style.display = '';
+}
