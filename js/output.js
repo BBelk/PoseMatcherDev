@@ -50,9 +50,10 @@ async function loadFFmpeg() {
     if (progress > 0) showProgress('Encoding: ' + Math.round(progress * 100) + '%');
   });
 
+  const base = new URL('.', location.href).href;
   await ffmpeg.load({
-    coreURL: 'lib/ffmpeg/ffmpeg-core.js',
-    wasmURL: 'lib/ffmpeg/ffmpeg-core.wasm',
+    coreURL: base + 'lib/ffmpeg/ffmpeg-core.js',
+    wasmURL: base + 'lib/ffmpeg/ffmpeg-core.wasm',
   });
 
   return ffmpeg;
