@@ -321,13 +321,11 @@ async function generate() {
     await ff.writeFile('frame_' + String(i).padStart(3, '0') + '.png', frames[i]);
   }
 
-  const lastIdx = frames.length - 1;
   let concatList = '';
   for (let i = 0; i < frames.length; i++) {
     concatList += "file 'frame_" + String(i).padStart(3, '0') + ".png'\n";
     concatList += 'duration ' + frameDurs[i] + '\n';
   }
-  concatList += "file 'frame_" + String(lastIdx).padStart(3, '0') + ".png'\n";
   await ff.writeFile('frames.txt', new TextEncoder().encode(concatList));
 
   if (format === 'mp4') {
@@ -493,5 +491,8 @@ export function clearOutput() {
   clearError();
   outputBox.classList.add('empty');
   const ph = outputBox.querySelector('.placeholder');
-  if (ph) ph.style.display = '';
+  if (ph) {
+    ph.textContent = 'Upload Reference and Comparison Images, then click Generate';
+    ph.style.display = '';
+  }
 }
