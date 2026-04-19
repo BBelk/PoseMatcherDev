@@ -40,19 +40,36 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   color: #fcc; font-size: 0.85rem; text-align: center; cursor: pointer;
 }
 
-/* --- Twin boxes (Reference + Output) --- */
+/* --- Input row (Reference + Comparisons) --- */
 
-#twin-boxes {
+#input-row {
   display: flex;
-  gap: 1.25rem;
+  gap: 1rem;
   width: 100%;
   max-width: 900px;
   margin-bottom: 0.75rem;
+  align-items: flex-start;
 }
 
-#twin-boxes > section {
+#reference-section {
+  flex: 0 0 180px;
+}
+
+#reference-section .pose-box {
+  aspect-ratio: 3 / 4;
+  height: auto;
+}
+
+#compare-section {
   flex: 1;
   min-width: 0;
+}
+
+/* Output section */
+#output-section {
+  width: 100%;
+  max-width: 900px;
+  margin-bottom: 0.75rem;
 }
 
 /* --- Pose box --- */
@@ -91,7 +108,6 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
   color: #fff; pointer-events: none;
 }
-.upload-prompt p { font-size: 0.8rem; }
 
 .upload-label {
   pointer-events: auto; cursor: pointer; padding: 0.35rem 0.9rem;
@@ -136,19 +152,19 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 
 #output-box .placeholder { font-size: 0.8rem; color: #fff; }
 
-#output-box.empty { aspect-ratio: unset; height: 80px; }
+#output-box.empty { aspect-ratio: unset; height: 60px; }
 
 /* Section header with inline button */
 
 .section-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
 .section-header h2 { margin-bottom: 0; }
 
-#generate-btn, #save-btn {
+#save-btn {
   padding: 0.2rem 0.75rem; border: 1px solid #555; border-radius: 5px;
   font-size: 0.75rem; color: #eee; background: #383838;
   cursor: pointer; transition: background 0.15s, border-color 0.15s;
 }
-#generate-btn:hover, #save-btn:hover { background: #4a4a4a; border-color: #888; }
+#save-btn:hover { background: #4a4a4a; border-color: #888; }
 
 /* --- Action bar (Options) --- */
 
@@ -168,6 +184,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.8rem;
   color: #fff; user-select: none; list-style: none;
   letter-spacing: 0.03em;
+  display: flex; align-items: center;
 }
 #options-details summary::before { content: '\25b8  '; }
 #options-details[open] summary::before { content: '\25be  '; }
@@ -256,10 +273,10 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 
 /* --- Comparisons --- */
 
-#compare-section { width: 100%; max-width: 900px; }
-
 #compare-grid {
   display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;
+  max-height: 340px;
+  overflow-y: auto;
 }
 
 .cmp-card {
@@ -291,7 +308,22 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 }
 
 #compare-upload { display: inline-block; }
-#compare-upload .upload-label { padding: 0.25rem 0.7rem; font-size: 0.78rem; }
+
+/* When grid has images, collapse to small button */
+#compare-grid:not(:empty) + #compare-upload .upload-prompt-cmp {
+  padding: 0.5rem;
+  min-height: auto;
+  border: none;
+  background: transparent;
+}
+#compare-grid:not(:empty) + #compare-upload .prompt-main,
+#compare-grid:not(:empty) + #compare-upload .prompt-sub {
+  display: none;
+}
+#compare-grid:not(:empty) + #compare-upload .upload-label-lg {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+}
 
 #compare-section.dragover { outline: 2px dashed #6cf; outline-offset: -2px; border-radius: 8px; }
 
@@ -327,43 +359,162 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 
 .modal-hint { font-size: 0.75rem; color: #fff; text-align: center; }
 
+/* --- Generate buttons --- */
+
+#generate-btn-desktop {
+  padding: 0.3rem 0.9rem;
+  border: 1px solid #4a4;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #2a5a2a 0%, #1a3a1a 100%);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+#generate-btn-desktop:hover {
+  background: linear-gradient(135deg, #3a7a3a 0%, #2a5a2a 100%);
+  border-color: #6c6;
+}
+
+#generate-section-mobile {
+  display: none;
+  width: 100%;
+  max-width: 900px;
+  margin-bottom: 0.75rem;
+}
+
+#generate-btn-mobile {
+  width: 100%;
+  padding: 0.9rem 1.5rem;
+  border: 2px solid #4a4;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #2a5a2a 0%, #1a3a1a 100%);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#generate-btn-mobile:hover {
+  background: linear-gradient(135deg, #3a7a3a 0%, #2a5a2a 100%);
+  border-color: #6c6;
+}
+
+/* --- Comparison upload styling --- */
+
+.upload-prompt-cmp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem;
+  border: 2px dashed #444;
+  border-radius: 10px;
+  background: var(--box-bg);
+  min-height: 100px;
+  justify-content: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.upload-prompt-cmp:hover {
+  border-color: #666;
+  background: #2a2a2a;
+}
+
+.upload-label-lg {
+  padding: 0.5rem 1.2rem;
+  font-size: 0.95rem;
+}
+
+.prompt-main {
+  font-size: 0.9rem;
+  color: #fff;
+  font-weight: 500;
+}
+.prompt-sub {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+/* Reference upload prompt styling */
+.upload-prompt .prompt-main {
+  font-size: 0.85rem;
+}
+.upload-prompt .prompt-sub {
+  font-size: 0.7rem;
+  color: #888;
+  text-align: center;
+  max-width: 200px;
+}
+
+/* --- Restore defaults button --- */
+
+.restore-btn {
+  margin-left: auto;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  color: #aaa;
+  background: #333;
+  cursor: pointer;
+}
+.restore-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
 /* --- Mobile layout --- */
 
 @media (max-width: 640px) {
-  #twin-boxes {
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #input-row {
     display: contents;
   }
 
-  /* Output section (first child) */
-  #twin-boxes > section:first-child {
-    order: 1;
-    width: 100%;
-    max-width: 100%;
-    margin-bottom: 0.75rem;
-  }
+  #top-bar { order: 0; }
+  #error-banner { order: 1; }
 
-  /* Action bar (Options) */
-  #action-bar {
+  #reference-section {
     order: 2;
-  }
-
-  /* Reference section (second child) */
-  #twin-boxes > section:last-child {
-    order: 3;
+    flex: none;
     width: 100%;
     max-width: 100%;
     margin-bottom: 0.75rem;
+  }
+
+  #reference-section .pose-box {
+    aspect-ratio: 3 / 4;
+    max-height: 300px;
   }
 
   #compare-section {
+    order: 3;
+    width: 100%;
+  }
+
+  #action-bar {
     order: 4;
   }
 
-  #top-bar {
-    order: 0;
+  #generate-section-mobile {
+    display: block;
+    order: 5;
+  }
+  #generate-btn-desktop {
+    display: none;
   }
 
-  #error-banner {
-    order: 0;
+  #output-section {
+    order: 6;
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 0.75rem;
   }
 }

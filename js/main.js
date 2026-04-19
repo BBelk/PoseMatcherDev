@@ -13,6 +13,7 @@ const scoreThreshSlider = document.getElementById('score-thresh');
 const scoreThreshVal = document.getElementById('score-thresh-val');
 const kpThreshSlider = document.getElementById('kp-thresh');
 const kpThreshVal = document.getElementById('kp-thresh-val');
+const restoreDefaultsBtn = document.getElementById('restore-defaults-btn');
 
 let refApi = null;
 
@@ -51,6 +52,30 @@ function initSettings() {
     POSE_CONFIG.confidenceThreshold = parseFloat(kpThreshSlider.value);
     kpThreshVal.textContent = kpThreshSlider.value;
     localStorage.setItem('kpThresh', kpThreshSlider.value);
+  });
+
+  restoreDefaultsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('align-part').value = '0';
+    document.getElementById('scale-toggle').checked = false;
+    document.getElementById('rotate-toggle').checked = false;
+    document.getElementById('output-width').value = '';
+    document.getElementById('output-height').value = '';
+    document.getElementById('output-format').value = 'gif';
+    document.getElementById('include-ref-toggle').checked = true;
+    document.getElementById('loop-toggle').checked = true;
+    document.getElementById('frame-counter-toggle').checked = false;
+    document.getElementById('frame-duration').value = '0.5';
+    document.getElementById('transition-toggle').checked = false;
+    document.getElementById('transition-duration').value = '0.25';
+    scoreThreshSlider.value = '0.3';
+    scoreThreshVal.textContent = '0.3';
+    POSE_CONFIG.scoreThreshold = 0.3;
+    kpThreshSlider.value = '0.3';
+    kpThreshVal.textContent = '0.3';
+    POSE_CONFIG.confidenceThreshold = 0.3;
+    localStorage.removeItem('scoreThresh');
+    localStorage.removeItem('kpThresh');
   });
 
   modeSelect.value = currentMode;

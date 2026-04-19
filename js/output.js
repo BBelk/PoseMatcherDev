@@ -1,6 +1,7 @@
 import { storedPoses, refSelectedPerson, comparisons, currentMode } from './state.js';
 
-const generateBtn = document.getElementById('generate-btn');
+const generateBtnDesktop = document.getElementById('generate-btn-desktop');
+const generateBtnMobile = document.getElementById('generate-btn-mobile');
 const overlayCanvas = document.getElementById('overlay-canvas');
 const outputBox = document.getElementById('output-box');
 const outputGif = document.getElementById('output-gif');
@@ -47,7 +48,9 @@ async function loadFFmpeg() {
   ffmpeg = new FFmpegWASM.FFmpeg();
 
   ffmpeg.on('progress', ({ progress }) => {
-    if (progress > 0) showProgress('Encoding: ' + Math.round(progress * 100) + '%');
+    if (progress > 0 && progress <= 1) {
+      showProgress('Encoding: ' + Math.round(progress * 100) + '%');
+    }
   });
 
   const base = new URL('.', location.href).href;
@@ -370,12 +373,14 @@ async function generate() {
   const ph = outputBox.querySelector('.placeholder');
   if (ph) ph.style.display = 'none';
 
-  for (let i = 0; i < frames.length; i++) {
-    await ff.deleteFile('frame_' + String(i).padStart(3, '0') + '.png');
-  }
-  await ff.deleteFile('frames.txt');
-  try { await ff.deleteFile('output.gif'); } catch (_) {}
-  try { await ff.deleteFile('output.mp4'); } catch (_) {}
+  try {
+    for (let i = 0; i < frames.length; i++) {
+      await ff.deleteFile('frame_' + String(i).padStart(3, '0') + '.png');
+    }
+    await ff.deleteFile('frames.txt');
+    await ff.deleteFile('output.gif');
+    await ff.deleteFile('output.mp4');
+  } catch (_) {}
 }
 
 export function setupOutput() {
@@ -468,7 +473,8 @@ export function setupOutput() {
   rotateToggle.addEventListener('change', () => localStorage.setItem('rotateEnabled', rotateToggle.checked));
   rotatePairSelect.addEventListener('change', () => localStorage.setItem('rotatePair', rotatePairSelect.value));
 
-  generateBtn.addEventListener('click', generate);
+  generateBtnDesktop.addEventListener('click', generate);
+  generateBtnMobile.addEventListener('click', generate);
 
   saveBtn.addEventListener('click', () => {
     if (!lastOutputBlob) return;
@@ -492,7 +498,7 @@ export function clearOutput() {
   outputBox.classList.add('empty');
   const ph = outputBox.querySelector('.placeholder');
   if (ph) {
-    ph.textContent = 'Upload Reference and Comparison Images, then click Generate';
+    ph.textContent = 'Your GIF or video will appear here after you click Generate';
     ph.style.display = '';
   }
 }

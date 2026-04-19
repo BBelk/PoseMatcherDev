@@ -14,27 +14,14 @@
 
   <div id="error-banner" style="display:none"></div>
 
-  <div id="twin-boxes">
-    <section>
-      <div class="section-header">
-        <h2>Output</h2>
-        <button id="generate-btn">Generate</button>
-        <button id="save-btn" style="display:none">Save Output</button>
-      </div>
-      <div id="output-box" class="pose-box empty">
-        <span class="placeholder">Upload Reference and Comparison Images, then click Generate</span>
-        <canvas id="overlay-canvas"></canvas>
-        <img id="output-gif" class="output-gif">
-        <video id="output-video" class="output-gif" muted playsinline></video>
-      </div>
-    </section>
-
-    <section>
-      <h2>Reference</h2>
+  <div id="input-row">
+    <section id="reference-section">
+      <h2>1. Reference</h2>
       <div id="reference-box" class="pose-box">
         <div class="upload-prompt">
-          <p>Drop or choose an image</p>
-          <label class="upload-label" for="ref-file">Choose Image</label>
+          <p class="prompt-main">Target pose</p>
+          <p class="prompt-sub">Others align to this</p>
+          <label class="upload-label" for="ref-file">Choose</label>
           <input type="file" id="ref-file" class="file-input" accept="image/*">
         </div>
         <img id="ref-img" class="pose-img" alt="Reference pose">
@@ -44,11 +31,24 @@
         <button class="clear-btn" title="Clear image">&times;</button>
       </div>
     </section>
+
+    <section id="compare-section">
+      <h2>2. Comparison Images</h2>
+      <div id="compare-grid"></div>
+      <div id="compare-upload">
+        <div class="upload-prompt-cmp">
+          <p class="prompt-main">Add images to align</p>
+          <p class="prompt-sub">These will be transformed to match your reference</p>
+          <label class="upload-label upload-label-lg" for="cmp-file">+ Add Images</label>
+        </div>
+        <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
+      </div>
+    </section>
   </div>
 
   <div id="action-bar">
     <details id="options-details">
-      <summary>Options</summary>
+      <summary>3. Options <button id="restore-defaults-btn" class="restore-btn">Restore Defaults</button></summary>
       <div class="options-body">
 
         <div class="opt-group">
@@ -199,13 +199,22 @@
     </details>
   </div>
 
-  <section id="compare-section">
-    <h2>Comparisons</h2>
-    <div id="compare-grid"></div>
-    <div id="compare-upload">
-      <label class="upload-label" for="cmp-file">+ Add Images</label>
-      <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
+  <section id="output-section">
+    <div class="section-header">
+      <h2>4. Output</h2>
+      <button id="generate-btn-desktop">Generate Timelapse</button>
+      <button id="save-btn" style="display:none">Save Output</button>
     </div>
+    <div id="output-box" class="pose-box empty">
+      <span class="placeholder">Your GIF or video will appear here after you click Generate</span>
+      <canvas id="overlay-canvas"></canvas>
+      <img id="output-gif" class="output-gif">
+      <video id="output-video" class="output-gif" muted playsinline></video>
+    </div>
+  </section>
+
+  <section id="generate-section-mobile">
+    <button id="generate-btn-mobile">Generate Timelapse</button>
   </section>
 
   <div id="person-modal" class="modal-overlay" style="display:none">
