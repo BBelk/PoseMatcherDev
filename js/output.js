@@ -1,5 +1,6 @@
 import { comparisons, currentMode } from './state.js';
 import { dlog, dlogError } from './debug.js';
+import { GIFEncoder, quantize, applyPalette } from '../lib/gifenc.js';
 
 const generateBtnDesktop = document.getElementById('generate-btn-desktop');
 const generateBtnMobile = document.getElementById('generate-btn-mobile');
@@ -321,7 +322,6 @@ function renderCmpFrame(ref, cmp, w, h, frameNum) {
 
 async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur, durFirst, durMiddle, durLast) {
   const startTime = performance.now();
-  const { GIFEncoder, quantize, applyPalette } = window.gifenc;
 
   dlog('info', 'Using gifenc for GIF encoding');
   showProgress('Encoding GIF...');
@@ -343,8 +343,8 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
     const imageData = ctx.getImageData(0, 0, w, h);
     const { data } = imageData;
 
-    const palette = quantize(data, 256, { format: 'rgba4444' });
-    const index = applyPalette(data, palette, 'rgba4444');
+    const palette = quantize(data, 256);
+    const index = applyPalette(data, palette);
 
     gif.writeFrame(index, w, h, { palette, delay: delayMs });
     frameCount++;

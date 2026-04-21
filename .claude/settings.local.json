@@ -10,7 +10,8 @@
       "Bash(find C:UsersbelkbDocumentsProjectSourcesWebsitesParalate-v0.1 -type f -name *.json)",
       "WebFetch(domain:chromewebstore.google.com)",
       "Bash(npm start *)",
-      "WebFetch(domain:dev.to)"
+      "WebFetch(domain:dev.to)",
+      "Bash(curl *)"
     ]
   }
 }
