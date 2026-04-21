@@ -9,7 +9,8 @@
       "Bash(curl -L -O \"https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js\")",
       "Bash(find C:UsersbelkbDocumentsProjectSourcesWebsitesParalate-v0.1 -type f -name *.json)",
       "WebFetch(domain:chromewebstore.google.com)",
-      "Bash(npm start *)"
+      "Bash(npm start *)",
+      "WebFetch(domain:dev.to)"
     ]
   }
 }
