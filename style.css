@@ -40,29 +40,18 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   color: #fcc; font-size: 0.85rem; text-align: center; cursor: pointer;
 }
 
-/* --- Input row (Reference + Comparisons) --- */
+/* --- Images section --- */
 
-#input-row {
-  display: flex;
-  gap: 1rem;
+#images-section {
   width: 100%;
   max-width: 900px;
   margin-bottom: 0.75rem;
-  align-items: flex-start;
 }
 
-#reference-section {
-  flex: 0 0 180px;
-}
-
-#reference-section .pose-box {
-  aspect-ratio: 3 / 4;
-  height: auto;
-}
-
-#compare-section {
-  flex: 1;
-  min-width: 0;
+.section-hint {
+  font-size: 0.75rem;
+  color: #888;
+  margin-bottom: 0.5rem;
 }
 
 /* Output section */
@@ -152,7 +141,8 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 
 #output-box .placeholder { font-size: 0.8rem; color: #fff; }
 
-#output-box.empty { aspect-ratio: unset; height: 60px; }
+#output-box { aspect-ratio: unset; }
+#output-box.empty { height: 60px; }
 
 /* Section header with inline button */
 
@@ -286,6 +276,19 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 }
 .cmp-card:hover { border-color: #555; }
 .cmp-card.selected { border-color: #6cf; }
+.cmp-card:first-child { border-color: #4a4; }
+.cmp-card:first-child::after {
+  content: 'REF';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  background: #4a4;
+  color: #fff;
+  font-size: 0.5rem;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
 .cmp-card.dragging { opacity: 0.4; }
 
 .drop-indicator {
@@ -325,7 +328,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   font-size: 0.78rem;
 }
 
-#compare-section.dragover { outline: 2px dashed #6cf; outline-offset: -2px; border-radius: 8px; }
+#images-section.dragover { outline: 2px dashed #6cf; outline-offset: -2px; border-radius: 8px; }
 
 /* --- Person selection modal --- */
 
@@ -474,45 +477,28 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
     flex-direction: column;
   }
 
-  #input-row {
-    display: contents;
-  }
-
   #top-bar { order: 0; }
   #error-banner { order: 1; }
 
-  #reference-section {
+  #images-section {
     order: 2;
-    flex: none;
-    width: 100%;
-    max-width: 100%;
-    margin-bottom: 0.75rem;
-  }
-
-  #reference-section .pose-box {
-    aspect-ratio: 3 / 4;
-    max-height: 300px;
-  }
-
-  #compare-section {
-    order: 3;
     width: 100%;
   }
 
   #action-bar {
-    order: 4;
+    order: 3;
   }
 
   #generate-section-mobile {
     display: block;
-    order: 5;
+    order: 4;
   }
   #generate-btn-desktop {
     display: none;
   }
 
   #output-section {
-    order: 6;
+    order: 5;
     width: 100%;
     max-width: 100%;
     margin-bottom: 0.75rem;

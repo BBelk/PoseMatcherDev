@@ -1,8 +1,7 @@
 import { dbGet, dbAllKeys, dbClear } from './db.js';
-import { storedPoses, comparisons, currentMode, setCurrentMode, selectedCmpIndex } from './state.js';
-import { drawOverlayForRef, drawOverlayForCmp } from './draw.js';
+import { comparisons, currentMode, setCurrentMode, selectedCmpIndex } from './state.js';
+import { drawOverlayForCmp } from './draw.js';
 import { closeModal, isModalOpen, getModalCmpEntry } from './modal.js';
-import { setupReference, setUpdateClearAllVisibility as setRefClearAllCb } from './reference.js';
 import { setupComparisons, addComparison, removeComparison, ensureCmpPoses, setUpdateClearAllVisibility as setCmpClearAllCb } from './comparisons.js';
 import { setupOutput, clearOutput } from './output.js';
 
@@ -15,12 +14,8 @@ const kpThreshSlider = document.getElementById('kp-thresh');
 const kpThreshVal = document.getElementById('kp-thresh-val');
 const restoreDefaultsBtn = document.getElementById('restore-defaults-btn');
 
-let refApi = null;
-
 function updateClearAllVisibility() {
-  const hasRef = document.getElementById('reference-box').classList.contains('has-image');
-  const hasCmp = comparisons.length > 0;
-  clearAllBtn.style.display = (hasRef || hasCmp) ? '' : 'none';
+  clearAllBtn.style.display = comparisons.length > 0 ? '' : 'none';
 }
 
 function initSettings() {
@@ -82,17 +77,14 @@ function initSettings() {
   modeSelect.addEventListener('change', async () => {
     setCurrentMode(modeSelect.value);
     if (currentMode === 'human') {
-      if (refApi && refApi.ensurePoses) await refApi.ensurePoses();
       for (const entry of comparisons) await ensureCmpPoses(entry);
     }
-    drawOverlayForRef();
     for (const entry of comparisons) drawOverlayForCmp(entry);
   });
 }
 
 function setupClearAll() {
   clearAllBtn.addEventListener('click', async () => {
-    if (refApi) refApi.clear();
     for (const c of comparisons) c.card.remove();
     comparisons.length = 0;
     clearOutput();
@@ -140,12 +132,6 @@ async function restore() {
     const keys = await dbAllKeys();
     const keySet = new Set(keys.map(String));
 
-    if (keySet.has('ref')) {
-      const blob = await dbGet('ref');
-      const refMeta = keySet.has('ref_meta') ? await dbGet('ref_meta') : null;
-      if (blob && refApi) refApi.loadBlob(blob, refMeta);
-    }
-
     const cmpKeys = keys.filter(k => {
       const s = String(k);
       return s.startsWith('cmp_') && !s.endsWith('_meta');
@@ -161,11 +147,9 @@ async function restore() {
 }
 
 function init() {
-  setRefClearAllCb(updateClearAllVisibility);
   setCmpClearAllCb(updateClearAllVisibility);
 
   initSettings();
-  refApi = setupReference();
   setupComparisons();
   setupOutput();
   setupClearAll();

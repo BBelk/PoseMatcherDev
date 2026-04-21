@@ -1,4 +1,4 @@
-import { storedPoses, refSelectedPerson, comparisons, currentMode } from './state.js';
+import { comparisons, currentMode } from './state.js';
 
 const generateBtnDesktop = document.getElementById('generate-btn-desktop');
 const generateBtnMobile = document.getElementById('generate-btn-mobile');
@@ -8,7 +8,6 @@ const outputGif = document.getElementById('output-gif');
 const outputVideo = document.getElementById('output-video');
 const outputFormatSelect = document.getElementById('output-format');
 const saveBtn = document.getElementById('save-btn');
-const refImg = document.getElementById('ref-img');
 const errorBanner = document.getElementById('error-banner');
 
 const includeRefToggle = document.getElementById('include-ref-toggle');
@@ -28,6 +27,9 @@ const scaleToggle = document.getElementById('scale-toggle');
 const scalePairSelect = document.getElementById('scale-pair');
 const rotateToggle = document.getElementById('rotate-toggle');
 const rotatePairSelect = document.getElementById('rotate-pair');
+const mp4QualityRow = document.getElementById('mp4-quality-row');
+const mp4QualitySlider = document.getElementById('mp4-quality');
+const mp4QualityVal = document.getElementById('mp4-quality-val');
 
 let lastOutputBlob = null;
 let lastOutputFormat = 'gif';
@@ -191,20 +193,20 @@ function drawFrameCounter(ctx, num, w) {
   ctx.fillText(text, w - bw / 2 - 6, 6 + bh / 2);
 }
 
-function renderRefFrame(w, h, frameNum) {
+function renderRefFrame(ref, w, h, frameNum) {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, w, h);
-  const rect = getDisplayRect(refImg.naturalWidth, refImg.naturalHeight, { clientWidth: w, clientHeight: h });
-  ctx.drawImage(refImg, rect.offsetX, rect.offsetY, rect.width, rect.height);
+  const rect = getDisplayRect(ref.img.naturalWidth, ref.img.naturalHeight, { clientWidth: w, clientHeight: h });
+  ctx.drawImage(ref.img, rect.offsetX, rect.offsetY, rect.width, rect.height);
   drawFrameCounter(ctx, frameNum, w);
   return canvas;
 }
 
-function renderCmpFrame(cmp, w, h, frameNum) {
+function renderCmpFrame(ref, cmp, w, h, frameNum) {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -212,12 +214,12 @@ function renderCmpFrame(cmp, w, h, frameNum) {
   ctx.fillStyle = '#111';
   ctx.fillRect(0, 0, w, h);
 
-  const refKps = storedPoses.ref && storedPoses.ref[refSelectedPerson] ? storedPoses.ref[refSelectedPerson].keypoints : null;
+  const refKps = ref.poses && ref.poses[ref.selectedPerson] ? ref.poses[ref.selectedPerson].keypoints : null;
   const cmpKps = cmp.poses && cmp.poses[cmp.selectedPerson] ? cmp.poses[cmp.selectedPerson].keypoints : null;
   const t = computeAlignTransform(
     refKps, cmpKps,
-    refImg, cmp.img, w, h,
-    storedPoses.refCustomPoint, cmp.customPoint
+    ref.img, cmp.img, w, h,
+    ref.customPoint, cmp.customPoint
   );
   if (!t) return null;
 
@@ -237,13 +239,12 @@ async function generate() {
   clearError();
   resetOutput();
 
-  if (!refImg.naturalWidth) { showError('Upload a reference image'); return; }
-
   const validCmps = comparisons.filter(c => c && c.img && c.img.naturalWidth);
-  if (!validCmps.length) { showError('Add comparison images'); return; }
+  if (validCmps.length < 2) { showError('Add at least 2 images'); return; }
 
-  const w = parseInt(document.getElementById('output-width').value) || refImg.naturalWidth || outputBox.clientWidth;
-  const h = parseInt(document.getElementById('output-height').value) || refImg.naturalHeight || outputBox.clientHeight;
+  const ref = validCmps[0];
+  const w = parseInt(document.getElementById('output-width').value) || ref.img.naturalWidth || outputBox.clientWidth;
+  const h = parseInt(document.getElementById('output-height').value) || ref.img.naturalHeight || outputBox.clientHeight;
   const includeRef = includeRefToggle.checked;
   const loopGif = loopToggle.checked;
 
@@ -261,9 +262,13 @@ async function generate() {
 
   let frameNum = 1;
   const mainCanvases = [];
-  if (includeRef) mainCanvases.push(renderRefFrame(w, h, frameNum++));
-  for (const cmp of validCmps) {
-    const c = renderCmpFrame(cmp, w, h, frameNum++);
+  const includeFirst = includeRefToggle.checked;
+
+  if (includeFirst) {
+    mainCanvases.push(renderRefFrame(ref, w, h, frameNum++));
+  }
+  for (let i = 1; i < validCmps.length; i++) {
+    const c = renderCmpFrame(ref, validCmps[i], w, h, frameNum++);
     if (c) mainCanvases.push(c);
   }
 
@@ -325,24 +330,7 @@ async function generate() {
   const totalFrames = frameIdx;
   await ff.writeFile('frames.txt', new TextEncoder().encode(concatList));
 
-  if (format === 'mp4') {
-    showProgress('Encoding MP4...');
-    const vf = (w % 2 || h % 2) ? 'pad=ceil(iw/2)*2:ceil(ih/2)*2' : null;
-    const args = ['-f', 'concat', '-safe', '0', '-i', 'frames.txt'];
-    if (vf) args.push('-vf', vf);
-    args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '23', '-movflags', '+faststart', 'output.mp4');
-    await ff.exec(args);
-
-    const mp4Data = await ff.readFile('output.mp4');
-    const mp4Blob = new Blob([mp4Data], { type: 'video/mp4' });
-    lastOutputBlob = mp4Blob;
-    lastOutputFormat = 'mp4';
-    outputVideo.src = URL.createObjectURL(mp4Blob);
-    outputVideo.loop = loopGif;
-    outputVideo.style.display = 'block';
-    outputVideo.play();
-    outputGif.style.display = 'none';
-  } else {
+  if (format === 'gif') {
     showProgress('Encoding GIF...');
     await ff.exec([
       '-f', 'concat', '-safe', '0', '-i', 'frames.txt',
@@ -350,20 +338,59 @@ async function generate() {
       '-loop', loopGif ? '0' : '-1',
       'output.gif',
     ]);
-
     const gifData = await ff.readFile('output.gif');
-    const gifBlob = new Blob([gifData], { type: 'image/gif' });
-    lastOutputBlob = gifBlob;
+    lastOutputBlob = new Blob([gifData], { type: 'image/gif' });
     lastOutputFormat = 'gif';
-    outputGif.src = URL.createObjectURL(gifBlob);
+    outputGif.src = URL.createObjectURL(lastOutputBlob);
     outputGif.style.display = 'block';
     outputVideo.style.display = 'none';
+  } else {
+    const needsEvenDims = ['mp4', 'mov', 'mpeg'].includes(format);
+    const vf = (needsEvenDims && (w % 2 || h % 2)) ? 'pad=ceil(iw/2)*2:ceil(ih/2)*2' : null;
+    const crf = mp4QualitySlider.value;
+    const args = ['-f', 'concat', '-safe', '0', '-i', 'frames.txt'];
+    if (vf) args.push('-vf', vf);
+
+    let outFile, mimeType;
+    if (format === 'mp4') {
+      showProgress('Encoding MP4...');
+      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', crf, '-movflags', '+faststart', 'output.mp4');
+      outFile = 'output.mp4';
+      mimeType = 'video/mp4';
+    } else if (format === 'webm') {
+      showProgress('Encoding WebM...');
+      args.push('-c:v', 'libvpx-vp9', '-crf', crf, '-b:v', '0', 'output.webm');
+      outFile = 'output.webm';
+      mimeType = 'video/webm';
+    } else if (format === 'mov') {
+      showProgress('Encoding MOV...');
+      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', crf, 'output.mov');
+      outFile = 'output.mov';
+      mimeType = 'video/quicktime';
+    } else if (format === 'mpeg') {
+      showProgress('Encoding MPEG...');
+      const q = Math.max(1, Math.min(31, Math.round(crf * 31 / 35)));
+      args.push('-c:v', 'mpeg1video', '-q:v', String(q), 'output.mpg');
+      outFile = 'output.mpg';
+      mimeType = 'video/mpeg';
+    }
+
+    await ff.exec(args);
+    const videoData = await ff.readFile(outFile);
+    lastOutputBlob = new Blob([videoData], { type: mimeType });
+    lastOutputFormat = format;
+    outputVideo.src = URL.createObjectURL(lastOutputBlob);
+    outputVideo.loop = loopGif;
+    outputVideo.style.display = 'block';
+    outputVideo.play();
+    outputGif.style.display = 'none';
   }
 
   overlayCanvas.style.display = 'none';
   clearError();
   saveBtn.style.display = '';
   outputBox.classList.remove('empty');
+  outputBox.style.aspectRatio = w + ' / ' + h;
   const ph = outputBox.querySelector('.placeholder');
   if (ph) ph.style.display = 'none';
 
@@ -374,6 +401,9 @@ async function generate() {
     await ff.deleteFile('frames.txt');
     await ff.deleteFile('output.gif');
     await ff.deleteFile('output.mp4');
+    await ff.deleteFile('output.webm');
+    await ff.deleteFile('output.mov');
+    await ff.deleteFile('output.mpg');
   } catch (_) {}
 }
 
@@ -384,7 +414,27 @@ export function setupOutput() {
 
   const _savedOutputFormat = localStorage.getItem('outputFormat');
   if (_savedOutputFormat) outputFormatSelect.value = _savedOutputFormat;
-  outputFormatSelect.addEventListener('change', () => localStorage.setItem('outputFormat', outputFormatSelect.value));
+
+  function updateVideoQualityVisibility() {
+    const isVideo = ['mp4', 'webm', 'mov', 'mpeg'].includes(outputFormatSelect.value);
+    mp4QualityRow.style.display = isVideo ? '' : 'none';
+  }
+  updateVideoQualityVisibility();
+
+  outputFormatSelect.addEventListener('change', () => {
+    localStorage.setItem('outputFormat', outputFormatSelect.value);
+    updateVideoQualityVisibility();
+  });
+
+  const _savedMp4Quality = localStorage.getItem('mp4Quality');
+  if (_savedMp4Quality) {
+    mp4QualitySlider.value = _savedMp4Quality;
+    mp4QualityVal.textContent = _savedMp4Quality;
+  }
+  mp4QualitySlider.addEventListener('input', () => {
+    mp4QualityVal.textContent = mp4QualitySlider.value;
+    localStorage.setItem('mp4Quality', mp4QualitySlider.value);
+  });
 
   if (localStorage.getItem('includeRef') !== null) includeRefToggle.checked = localStorage.getItem('includeRef') === 'true';
   if (localStorage.getItem('loop') !== null) loopToggle.checked = localStorage.getItem('loop') === 'true';
@@ -472,7 +522,8 @@ export function setupOutput() {
 
   saveBtn.addEventListener('click', () => {
     if (!lastOutputBlob) return;
-    const ext = lastOutputFormat === 'mp4' ? 'mp4' : 'gif';
+    const extMap = { gif: 'gif', mp4: 'mp4', webm: 'webm', mov: 'mov', mpeg: 'mpg' };
+    const ext = extMap[lastOutputFormat] || lastOutputFormat;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(lastOutputBlob);
     a.download = 'posematcher.' + ext;
@@ -490,6 +541,7 @@ export function clearOutput() {
   overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   clearError();
   outputBox.classList.add('empty');
+  outputBox.style.aspectRatio = '';
   const ph = outputBox.querySelector('.placeholder');
   if (ph) {
     ph.textContent = 'Your GIF or video will appear here after you click Generate';

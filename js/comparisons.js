@@ -6,7 +6,7 @@ import { openPersonModal, openCustomPointModal, setModalCmpEntry } from './modal
 
 const compareGrid = document.getElementById('compare-grid');
 const cmpFileInput = document.getElementById('cmp-file');
-const compareSection = document.getElementById('compare-section');
+const imagesSection = document.getElementById('images-section');
 
 let cmpIdCounter = 0;
 let draggedEntry = null;
@@ -236,20 +236,20 @@ export function setupComparisons() {
     cmpFileInput.value = '';
   });
 
-  compareSection.addEventListener('dragover', (e) => {
+  imagesSection.addEventListener('dragover', (e) => {
     if (draggedEntry) return;
     e.preventDefault();
-    compareSection.classList.add('dragover');
+    imagesSection.classList.add('dragover');
   });
 
-  compareSection.addEventListener('dragleave', () => {
-    compareSection.classList.remove('dragover');
+  imagesSection.addEventListener('dragleave', () => {
+    imagesSection.classList.remove('dragover');
   });
 
-  compareSection.addEventListener('drop', (e) => {
+  imagesSection.addEventListener('drop', (e) => {
     if (draggedEntry) return;
     e.preventDefault();
-    compareSection.classList.remove('dragover');
+    imagesSection.classList.remove('dragover');
     addMultipleComparisons(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
   });
 

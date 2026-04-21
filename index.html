@@ -21,41 +21,23 @@
 
   <div id="error-banner" style="display:none"></div>
 
-  <div id="input-row">
-    <section id="reference-section">
-      <h2>1. Reference</h2>
-      <div id="reference-box" class="pose-box">
-        <div class="upload-prompt">
-          <p class="prompt-main">Target pose</p>
-          <p class="prompt-sub">Others align to this</p>
-          <label class="upload-label" for="ref-file">Choose</label>
-          <input type="file" id="ref-file" class="file-input" accept="image/*">
-        </div>
-        <img id="ref-img" class="pose-img" alt="Reference pose">
-        <canvas id="ref-canvas"></canvas>
-        <div id="ref-status" class="status"></div>
-        <div id="ref-meta" class="img-meta"></div>
-        <button class="clear-btn" title="Clear image">&times;</button>
+  <section id="images-section">
+    <h2>1. Images</h2>
+    <p class="section-hint">First image = reference. Others align to it.</p>
+    <div id="compare-grid"></div>
+    <div id="compare-upload">
+      <div class="upload-prompt-cmp">
+        <p class="prompt-main">Add images</p>
+        <p class="prompt-sub">Drop files or click to upload</p>
+        <label class="upload-label upload-label-lg" for="cmp-file">+ Add Images</label>
       </div>
-    </section>
-
-    <section id="compare-section">
-      <h2>2. Comparison Images</h2>
-      <div id="compare-grid"></div>
-      <div id="compare-upload">
-        <div class="upload-prompt-cmp">
-          <p class="prompt-main">Add images to align</p>
-          <p class="prompt-sub">These will be transformed to match your reference</p>
-          <label class="upload-label upload-label-lg" for="cmp-file">+ Add Images</label>
-        </div>
-        <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
-      </div>
-    </section>
-  </div>
+      <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
+    </div>
+  </section>
 
   <div id="action-bar">
     <details id="options-details">
-      <summary>3. Options <button id="restore-defaults-btn" class="restore-btn">Restore Defaults</button></summary>
+      <summary>2. Options <button id="restore-defaults-btn" class="restore-btn">Restore Defaults</button></summary>
       <div class="options-body">
 
         <div class="opt-group">
@@ -63,8 +45,8 @@
           <div class="setting-compact">
             <label for="mode-select">Tracking mode</label>
             <select id="mode-select">
-              <option value="human" selected>Human pose</option>
-              <option value="custom">Custom point</option>
+              <option value="human">Human pose</option>
+              <option value="custom" selected>Custom point</option>
             </select>
           </div>
           <div class="setting-compact">
@@ -127,11 +109,21 @@
             <select id="output-format">
               <option value="gif" selected>GIF</option>
               <option value="mp4">MP4</option>
+              <option value="webm">WebM</option>
+              <option value="mov">MOV</option>
+              <option value="mpeg">MPEG</option>
             </select>
+          </div>
+          <div class="setting-compact" id="mp4-quality-row" style="display:none">
+            <label for="mp4-quality">Quality (lower=better)</label>
+            <span class="inline-sub">
+              <input type="range" id="mp4-quality" min="18" max="35" step="1" value="23">
+              <span id="mp4-quality-val">23</span>
+            </span>
           </div>
           <div class="setting-row-pair">
             <div class="setting-compact">
-              <label for="include-ref-toggle">Include reference</label>
+              <label for="include-ref-toggle">Include first</label>
               <input type="checkbox" id="include-ref-toggle" checked>
             </div>
             <div class="setting-compact">
@@ -208,7 +200,7 @@
 
   <section id="output-section">
     <div class="section-header">
-      <h2>4. Output</h2>
+      <h2>3. Output</h2>
       <button id="generate-btn-desktop">Generate Timelapse</button>
       <button id="save-btn" style="display:none">Save Output</button>
     </div>
@@ -216,7 +208,7 @@
       <span class="placeholder">Your GIF or video will appear here after you click Generate</span>
       <canvas id="overlay-canvas"></canvas>
       <img id="output-gif" class="output-gif">
-      <video id="output-video" class="output-gif" muted playsinline></video>
+      <video id="output-video" class="output-gif" muted playsinline controls></video>
     </div>
   </section>
 
