@@ -4,6 +4,7 @@ import { drawOverlayForCmp } from './draw.js';
 import { closeModal, isModalOpen, getModalCmpEntry } from './modal.js';
 import { setupComparisons, addComparison, removeComparison, ensureCmpPoses, setUpdateClearAllVisibility as setCmpClearAllCb, getComparisonOrder } from './comparisons.js';
 import { setupOutput, clearOutput } from './output.js';
+import { getDebugSessions, clearDebugLogs, formatLogsForCopy, dlog } from './debug.js';
 
 const clearAllBtn = document.getElementById('clear-all-btn');
 const optionsDetails = document.getElementById('options-details');
@@ -225,6 +226,103 @@ async function restore() {
   }
 }
 
+function setupDebugPanel() {
+  const toggle = document.getElementById('debug-toggle');
+  const panel = document.getElementById('debug-panel');
+  const content = document.getElementById('debug-content');
+  const copyBtn = document.getElementById('debug-copy');
+  const clearBtn = document.getElementById('debug-clear');
+  const closeBtn = document.getElementById('debug-close');
+
+  function renderSessions() {
+    const sessions = getDebugSessions();
+    content.innerHTML = '';
+
+    if (!sessions.length) {
+      content.innerHTML = '<p style="color:#666;padding:0.5rem">No logs yet</p>';
+      return;
+    }
+
+    // Check if any crashed sessions
+    const hasCrash = sessions.some(s => s.status === 'crashed');
+    toggle.classList.toggle('has-crash', hasCrash);
+
+    // Show sessions in reverse order (newest first)
+    for (let i = sessions.length - 1; i >= 0; i--) {
+      const session = sessions[i];
+      const div = document.createElement('div');
+      div.className = 'debug-session ' + session.status;
+
+      const statusText = session.status === 'crashed' ? '💥 CRASHED' :
+                         session.status === 'running' ? '🔄 Current' : '✓ Ended';
+
+      const headerDiv = document.createElement('div');
+      headerDiv.className = 'debug-session-header';
+      headerDiv.innerHTML = `<span>${new Date(session.start).toLocaleString()}</span><span>${statusText}</span>`;
+
+      const logsDiv = document.createElement('div');
+      logsDiv.className = 'debug-session-logs';
+      logsDiv.style.display = i === sessions.length - 1 ? '' : 'none';
+
+      for (const log of session.logs) {
+        const logEl = document.createElement('div');
+        logEl.className = 'debug-log ' + log.level;
+        const time = (log.t / 1000).toFixed(2) + 's';
+        let html = `<span class="time">${time}</span><span class="level">${log.level.toUpperCase()}</span> <span class="msg">${escapeHtml(log.msg)}</span>`;
+        if (log.data) {
+          html += `<div class="data">${escapeHtml(JSON.stringify(log.data))}</div>`;
+        }
+        logEl.innerHTML = html;
+        logsDiv.appendChild(logEl);
+      }
+
+      headerDiv.addEventListener('click', () => {
+        logsDiv.style.display = logsDiv.style.display === 'none' ? '' : 'none';
+      });
+
+      div.appendChild(headerDiv);
+      div.appendChild(logsDiv);
+      content.appendChild(div);
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  toggle.addEventListener('click', () => {
+    const isVisible = panel.style.display !== 'none';
+    if (isVisible) {
+      panel.style.display = 'none';
+    } else {
+      renderSessions();
+      panel.style.display = '';
+    }
+  });
+
+  closeBtn.addEventListener('click', () => {
+    panel.style.display = 'none';
+  });
+
+  copyBtn.addEventListener('click', () => {
+    const text = formatLogsForCopy();
+    navigator.clipboard.writeText(text).then(() => {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+    });
+  });
+
+  clearBtn.addEventListener('click', () => {
+    clearDebugLogs();
+    renderSessions();
+  });
+
+  // Check for crashed sessions on load and pulse the button
+  const sessions = getDebugSessions();
+  const hasCrash = sessions.some(s => s.status === 'crashed');
+  toggle.classList.toggle('has-crash', hasCrash);
+}
+
 function init() {
   setCmpClearAllCb(updateClearAllVisibility);
 
@@ -233,8 +331,11 @@ function init() {
   setupOutput();
   setupClearAll();
   setupKeyboardShortcuts();
+  setupDebugPanel();
 
   restore();
+
+  dlog('info', 'App initialized');
 }
 
 init();

@@ -232,6 +232,19 @@
     </div>
   </div>
 
+  <div id="debug-panel" class="debug-panel" style="display:none">
+    <div class="debug-header">
+      <span>Debug Logs</span>
+      <span class="debug-actions">
+        <button id="debug-copy">Copy</button>
+        <button id="debug-clear">Clear</button>
+        <button id="debug-close">&times;</button>
+      </span>
+    </div>
+    <div id="debug-content" class="debug-content"></div>
+  </div>
+  <button id="debug-toggle" class="debug-toggle">🔧</button>
+
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
   <script src="lib/ffmpeg/ffmpeg.js"></script>
   <script src="pose.js"></script>
