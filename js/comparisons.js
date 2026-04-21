@@ -29,6 +29,17 @@ function updateCardNumbers() {
   });
 }
 
+function saveComparisonOrder() {
+  const order = comparisons.map(e => e.dbKey);
+  localStorage.setItem('cmpOrder', JSON.stringify(order));
+}
+
+export function getComparisonOrder() {
+  try {
+    return JSON.parse(localStorage.getItem('cmpOrder')) || [];
+  } catch { return []; }
+}
+
 export async function ensureCmpPoses(entry) {
   if (entry.poses) return;
   if (!entry.img || !entry.img.naturalWidth) return;
@@ -166,6 +177,42 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
     reorderComparison(draggedEntry, entry, dropInsertAfter);
   });
 
+  // Touch support for mobile reordering
+  let touchTimeout = null;
+  card.addEventListener('touchstart', (e) => {
+    if (e.target === clearBtn) return;
+    touchTimeout = setTimeout(() => {
+      draggedEntry = entry;
+      card.classList.add('dragging');
+    }, 300);
+  }, { passive: true });
+  card.addEventListener('touchmove', (e) => {
+    if (!draggedEntry) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const targetCard = target?.closest('.cmp-card');
+    if (targetCard && targetCard !== card) {
+      const targetEntry = comparisons.find(c => c.card === targetCard);
+      if (targetEntry) {
+        const rect = targetCard.getBoundingClientRect();
+        dropInsertAfter = touch.clientX > rect.left + rect.width / 2;
+        dropTargetEntry = targetEntry;
+        showDropIndicator(targetCard, dropInsertAfter);
+      }
+    }
+  }, { passive: false });
+  card.addEventListener('touchend', () => {
+    clearTimeout(touchTimeout);
+    if (draggedEntry && dropTargetEntry && draggedEntry !== dropTargetEntry) {
+      reorderComparison(draggedEntry, dropTargetEntry, dropInsertAfter);
+    }
+    card.classList.remove('dragging');
+    draggedEntry = null;
+    dropTargetEntry = null;
+    clearDropIndicators();
+  });
+
   await new Promise((resolve) => {
     img.onload = async () => {
       canvas.width = card.clientWidth;
@@ -185,6 +232,7 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
       drawOverlayForCmp(entry);
       updateClearAllVisibility();
       updateCardNumbers();
+      saveComparisonOrder();
       resolve();
     };
     img.onerror = resolve;
@@ -211,6 +259,7 @@ export function removeComparison(index) {
   comparisons.splice(index, 1);
   updateClearAllVisibility();
   updateCardNumbers();
+  saveComparisonOrder();
   if (wasSelected) {
     setSelectedCmpIndex(-1);
     if (comparisons.length > 0) {
@@ -243,6 +292,7 @@ function reorderComparison(srcEntry, targetEntry, insertAfter) {
     if (newSelIdx >= 0) selectComparison(newSelIdx);
   }
   updateCardNumbers();
+  saveComparisonOrder();
 }
 
 export function getSelectedComparison() {

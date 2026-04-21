@@ -2,12 +2,13 @@ import { dbGet, dbAllKeys, dbClear } from './db.js';
 import { comparisons, currentMode, setCurrentMode, selectedCmpIndex } from './state.js';
 import { drawOverlayForCmp } from './draw.js';
 import { closeModal, isModalOpen, getModalCmpEntry } from './modal.js';
-import { setupComparisons, addComparison, removeComparison, ensureCmpPoses, setUpdateClearAllVisibility as setCmpClearAllCb } from './comparisons.js';
+import { setupComparisons, addComparison, removeComparison, ensureCmpPoses, setUpdateClearAllVisibility as setCmpClearAllCb, getComparisonOrder } from './comparisons.js';
 import { setupOutput, clearOutput } from './output.js';
 
 const clearAllBtn = document.getElementById('clear-all-btn');
 const optionsDetails = document.getElementById('options-details');
-const modeSelect = document.getElementById('mode-select');
+const modeCustomRadio = document.getElementById('mode-custom');
+const modeHumanRadio = document.getElementById('mode-human');
 const scoreThreshSlider = document.getElementById('score-thresh');
 const scoreThreshVal = document.getElementById('score-thresh-val');
 const kpThreshSlider = document.getElementById('kp-thresh');
@@ -56,16 +57,25 @@ function initSettings() {
 
   restoreDefaultsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    // Reset all UI elements
     document.getElementById('align-part').value = '0';
     document.getElementById('scale-toggle').checked = false;
+    document.getElementById('scale-pair').value = 'shoulders';
     document.getElementById('rotate-toggle').checked = false;
+    document.getElementById('rotate-pair').value = 'shoulders';
     document.getElementById('output-width').value = '';
     document.getElementById('output-height').value = '';
     document.getElementById('output-format').value = 'gif';
+    document.getElementById('mp4-quality').value = '23';
+    document.getElementById('mp4-quality-val').value = '23';
     document.getElementById('loop-toggle').checked = true;
     document.getElementById('frame-counter-toggle').checked = false;
     document.getElementById('frame-duration').value = '0.5';
+    document.getElementById('first-frame-duration').value = '0.5';
+    document.getElementById('middle-frame-duration').value = '0.5';
+    document.getElementById('last-frame-duration').value = '0.5';
     document.getElementById('transition-toggle').checked = false;
+    document.getElementById('transition-type').value = 'fade';
     document.getElementById('transition-duration').value = '0.25';
     scoreThreshSlider.value = '0.3';
     scoreThreshVal.textContent = '0.3';
@@ -73,13 +83,31 @@ function initSettings() {
     kpThreshSlider.value = '0.3';
     kpThreshVal.textContent = '0.3';
     POSE_CONFIG.confidenceThreshold = 0.3;
+    // Clear all localStorage settings
     localStorage.removeItem('scoreThresh');
     localStorage.removeItem('kpThresh');
+    localStorage.removeItem('alignPart');
+    localStorage.removeItem('scaleEnabled');
+    localStorage.removeItem('scalePair');
+    localStorage.removeItem('rotateEnabled');
+    localStorage.removeItem('rotatePair');
+    localStorage.removeItem('outputFormat');
+    localStorage.removeItem('mp4Quality');
+    localStorage.removeItem('loop');
+    localStorage.removeItem('frameCounter');
+    localStorage.removeItem('frameDuration');
+    localStorage.removeItem('firstFrameDuration');
+    localStorage.removeItem('middleFrameDuration');
+    localStorage.removeItem('lastFrameDuration');
+    localStorage.removeItem('customDurationsActive');
+    localStorage.removeItem('transitionEnabled');
+    localStorage.removeItem('transitionType');
+    localStorage.removeItem('transitionDuration');
     updateRedetectBtn();
   });
 
   function updateModeVisibility() {
-    const isHuman = modeSelect.value === 'human';
+    const isHuman = modeHumanRadio.checked;
     humanPoseOptions.style.display = isHuman ? '' : 'none';
     detectionGroup.style.display = isHuman ? '' : 'none';
   }
@@ -105,17 +133,25 @@ function initSettings() {
     redetectBtn.textContent = 'Re-detect All';
   });
 
-  modeSelect.value = currentMode;
+  if (currentMode === 'human') {
+    modeHumanRadio.checked = true;
+  } else {
+    modeCustomRadio.checked = true;
+  }
   updateModeVisibility();
 
-  modeSelect.addEventListener('change', async () => {
-    setCurrentMode(modeSelect.value);
+  async function handleModeChange() {
+    const newMode = modeHumanRadio.checked ? 'human' : 'custom';
+    setCurrentMode(newMode);
     updateModeVisibility();
     if (currentMode === 'human') {
       for (const entry of comparisons) await ensureCmpPoses(entry);
     }
     for (const entry of comparisons) drawOverlayForCmp(entry);
-  });
+  }
+
+  modeCustomRadio.addEventListener('change', handleModeChange);
+  modeHumanRadio.addEventListener('change', handleModeChange);
 }
 
 function setupClearAll() {
@@ -166,11 +202,19 @@ async function restore() {
   try {
     const keys = await dbAllKeys();
     const keySet = new Set(keys.map(String));
+    const savedOrder = getComparisonOrder();
 
     const cmpKeys = keys.filter(k => {
       const s = String(k);
       return s.startsWith('cmp_') && !s.endsWith('_meta');
-    }).sort();
+    }).sort((a, b) => {
+      const ai = savedOrder.indexOf(String(a));
+      const bi = savedOrder.indexOf(String(b));
+      if (ai === -1 && bi === -1) return String(a).localeCompare(String(b));
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
     for (const key of cmpKeys) {
       const blob = await dbGet(key);
       const meta = keySet.has(key + '_meta') ? await dbGet(key + '_meta') : null;

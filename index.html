@@ -40,16 +40,19 @@
       <summary>2. Options <button id="restore-defaults-btn" class="restore-btn">Restore Defaults</button></summary>
       <div class="options-body">
 
-        <div class="opt-group">
-          <div class="opt-group-title">Alignment</div>
-          <div class="setting-compact">
-            <label for="mode-select">Tracking mode</label>
-            <select id="mode-select">
-              <option value="human">Human pose</option>
-              <option value="custom" selected>Custom point</option>
-            </select>
-          </div>
-          <div id="human-pose-options" style="display:none">
+        <div class="mode-selector">
+          <label class="mode-option">
+            <input type="radio" name="mode" value="custom" id="mode-custom" checked>
+            <span>Custom Point</span>
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="mode" value="human" id="mode-human">
+            <span>Human Pose</span>
+          </label>
+        </div>
+
+        <div class="opt-group" id="human-pose-options" style="display:none">
+          <div class="opt-group-title">Pose Alignment</div>
             <div class="setting-compact">
               <label for="align-part">Position anchor</label>
               <select id="align-part">
@@ -113,14 +116,13 @@
               <option value="mp4">MP4</option>
               <option value="webm">WebM</option>
               <option value="mov">MOV</option>
-              <option value="mpeg">MPEG</option>
             </select>
           </div>
           <div class="setting-compact" id="mp4-quality-row" style="display:none">
-            <label for="mp4-quality">Quality (lower=better)</label>
+            <label for="mp4-quality">CRF <span class="label-hint">(18=best, 35=smallest)</span></label>
             <span class="inline-sub">
               <input type="range" id="mp4-quality" min="18" max="35" step="1" value="23">
-              <span id="mp4-quality-val">23</span>
+              <input type="number" id="mp4-quality-val" min="18" max="35" step="1" value="23">
             </span>
           </div>
           <div class="setting-row-pair">

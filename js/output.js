@@ -404,7 +404,7 @@ async function generate() {
     showProgress('Encoding GIF...');
     const gifArgs = [
       '-f', 'concat', '-safe', '0', '-i', 'frames.txt',
-      '-vf', 'fps=10,split[s0][s1];[s0]palettegen=max_colors=128:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3',
+      '-vf', 'split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=sierra2_4a',
       '-loop', loopGif ? '0' : '-1',
       'output.gif',
     ];
@@ -417,7 +417,7 @@ async function generate() {
     outputGif.style.display = 'block';
     outputVideo.style.display = 'none';
   } else {
-    const needsEvenDims = ['mp4', 'mov', 'mpeg'].includes(format);
+    const needsEvenDims = ['mp4', 'mov'].includes(format);
     const vf = (needsEvenDims && (w % 2 || h % 2)) ? 'pad=ceil(iw/2)*2:ceil(ih/2)*2' : null;
     const crf = mp4QualitySlider.value;
     const args = ['-f', 'concat', '-safe', '0', '-i', 'frames.txt'];
@@ -439,12 +439,6 @@ async function generate() {
       args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', crf, 'output.mov');
       outFile = 'output.mov';
       mimeType = 'video/quicktime';
-    } else if (format === 'mpeg') {
-      showProgress('Encoding MPEG...');
-      const q = Math.max(1, Math.min(31, Math.round(crf * 31 / 35)));
-      args.push('-c:v', 'mpeg1video', '-q:v', String(q), 'output.mpg');
-      outFile = 'output.mpg';
-      mimeType = 'video/mpeg';
     }
 
     console.log('Video args:', args);
@@ -476,7 +470,6 @@ async function generate() {
     await ff.deleteFile('output.mp4');
     await ff.deleteFile('output.webm');
     await ff.deleteFile('output.mov');
-    await ff.deleteFile('output.mpg');
   } catch (_) {}
 }
 
@@ -489,7 +482,7 @@ export function setupOutput() {
   if (_savedOutputFormat) outputFormatSelect.value = _savedOutputFormat;
 
   function updateVideoQualityVisibility() {
-    const isVideo = ['mp4', 'webm', 'mov', 'mpeg'].includes(outputFormatSelect.value);
+    const isVideo = ['mp4', 'webm', 'mov'].includes(outputFormatSelect.value);
     mp4QualityRow.style.display = isVideo ? '' : 'none';
   }
   updateVideoQualityVisibility();
@@ -502,11 +495,15 @@ export function setupOutput() {
   const _savedMp4Quality = localStorage.getItem('mp4Quality');
   if (_savedMp4Quality) {
     mp4QualitySlider.value = _savedMp4Quality;
-    mp4QualityVal.textContent = _savedMp4Quality;
+    mp4QualityVal.value = _savedMp4Quality;
   }
   mp4QualitySlider.addEventListener('input', () => {
-    mp4QualityVal.textContent = mp4QualitySlider.value;
+    mp4QualityVal.value = mp4QualitySlider.value;
     localStorage.setItem('mp4Quality', mp4QualitySlider.value);
+  });
+  mp4QualityVal.addEventListener('input', () => {
+    mp4QualitySlider.value = mp4QualityVal.value;
+    localStorage.setItem('mp4Quality', mp4QualityVal.value);
   });
 
   if (localStorage.getItem('loop') !== null) loopToggle.checked = localStorage.getItem('loop') === 'true';
@@ -593,7 +590,7 @@ export function setupOutput() {
 
   saveBtn.addEventListener('click', () => {
     if (!lastOutputBlob) return;
-    const extMap = { gif: 'gif', mp4: 'mp4', webm: 'webm', mov: 'mov', mpeg: 'mpg' };
+    const extMap = { gif: 'gif', mp4: 'mp4', webm: 'webm', mov: 'mov' };
     const ext = extMap[lastOutputFormat] || lastOutputFormat;
     const a = document.createElement('a');
     a.href = URL.createObjectURL(lastOutputBlob);
