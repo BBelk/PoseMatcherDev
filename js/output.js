@@ -67,11 +67,11 @@ function canvasToUint8(canvas) {
   return new Promise(resolve => {
     canvas.toBlob(async (blob) => {
       resolve(new Uint8Array(await blob.arrayBuffer()));
-    }, 'image/png');
+    }, 'image/jpeg', 0.92);
   });
 }
 
-function blendFrames(canvasA, canvasB, alpha, w, h) {
+function transitionFade(canvasA, canvasB, alpha, w, h) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const ctx = c.getContext('2d');
@@ -80,6 +80,75 @@ function blendFrames(canvasA, canvasB, alpha, w, h) {
   ctx.drawImage(canvasB, 0, 0);
   ctx.globalAlpha = 1;
   return c;
+}
+
+function transitionWipe(canvasA, canvasB, alpha, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(canvasA, 0, 0);
+  const wipeX = Math.round(alpha * w);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, wipeX, h);
+  ctx.clip();
+  ctx.drawImage(canvasB, 0, 0);
+  ctx.restore();
+  return c;
+}
+
+function transitionSlide(canvasA, canvasB, alpha, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  const offset = Math.round(alpha * w);
+  ctx.drawImage(canvasA, -offset, 0);
+  ctx.drawImage(canvasB, w - offset, 0);
+  return c;
+}
+
+function transitionFlash(canvasA, canvasB, alpha, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  if (alpha < 0.5) {
+    ctx.drawImage(canvasA, 0, 0);
+    ctx.fillStyle = 'rgba(255,255,255,' + (alpha * 2) + ')';
+    ctx.fillRect(0, 0, w, h);
+  } else {
+    ctx.drawImage(canvasB, 0, 0);
+    ctx.fillStyle = 'rgba(255,255,255,' + ((1 - alpha) * 2) + ')';
+    ctx.fillRect(0, 0, w, h);
+  }
+  return c;
+}
+
+function transitionBlur(canvasA, canvasB, alpha, w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  const maxBlur = 20;
+  if (alpha < 0.5) {
+    const blur = alpha * 2 * maxBlur;
+    ctx.filter = 'blur(' + blur + 'px)';
+    ctx.drawImage(canvasA, 0, 0);
+  } else {
+    const blur = (1 - alpha) * 2 * maxBlur;
+    ctx.filter = 'blur(' + blur + 'px)';
+    ctx.drawImage(canvasB, 0, 0);
+  }
+  ctx.filter = 'none';
+  return c;
+}
+
+function blendFrames(canvasA, canvasB, alpha, w, h, type) {
+  switch (type) {
+    case 'wipe': return transitionWipe(canvasA, canvasB, alpha, w, h);
+    case 'slide': return transitionSlide(canvasA, canvasB, alpha, w, h);
+    case 'flash': return transitionFlash(canvasA, canvasB, alpha, w, h);
+    case 'blur': return transitionBlur(canvasA, canvasB, alpha, w, h);
+    default: return transitionFade(canvasA, canvasB, alpha, w, h);
+  }
 }
 
 function showProgress(msg) {
@@ -235,16 +304,17 @@ function renderCmpFrame(ref, cmp, w, h, frameNum) {
 }
 
 async function generate() {
+  console.log('Generate started');
   clearError();
   resetOutput();
 
   const validCmps = comparisons.filter(c => c && c.img && c.img.naturalWidth);
+  console.log('Valid comparisons:', validCmps.length);
   if (validCmps.length < 2) { showError('Add at least 2 images'); return; }
 
   const ref = validCmps[0];
   const w = parseInt(document.getElementById('output-width').value) || ref.img.naturalWidth || outputBox.clientWidth;
   const h = parseInt(document.getElementById('output-height').value) || ref.img.naturalHeight || outputBox.clientHeight;
-  const includeRef = includeRefToggle.checked;
   const loopGif = loopToggle.checked;
 
   const defaultDur = parseFloat(frameDurationInput.value) || 0.5;
@@ -261,11 +331,8 @@ async function generate() {
 
   let frameNum = 1;
   const mainCanvases = [];
-  const includeFirst = includeRefToggle.checked;
 
-  if (includeFirst) {
-    mainCanvases.push(renderRefFrame(ref, w, h, frameNum++));
-  }
+  mainCanvases.push(renderRefFrame(ref, w, h, frameNum++));
   for (let i = 1; i < validCmps.length; i++) {
     const c = renderCmpFrame(ref, validCmps[i], w, h, frameNum++);
     if (c) mainCanvases.push(c);
@@ -285,14 +352,16 @@ async function generate() {
   const format = outputFormatSelect.value;
 
   const ff = await loadFFmpeg();
+  console.log('FFmpeg loaded');
   showProgress('Processing frames...');
 
+  const startTime = performance.now();
   let frameIdx = 0;
   let concatList = '';
 
   async function writeFrame(canvas, duration) {
     const data = await canvasToUint8(canvas);
-    const name = 'frame_' + String(frameIdx).padStart(4, '0') + '.png';
+    const name = 'frame_' + String(frameIdx).padStart(4, '0') + '.jpg';
     await ff.writeFile(name, data);
     concatList += "file '" + name + "'\nduration " + duration + "\n";
     frameIdx++;
@@ -310,7 +379,7 @@ async function generate() {
       const next = mainCanvases[i + 1];
       for (let k = 1; k < transitionSteps; k++) {
         const alpha = k / transitionSteps;
-        const blended = blendFrames(mainCanvases[i], next, alpha, w, h);
+        const blended = blendFrames(mainCanvases[i], next, alpha, w, h, tType);
         await writeFrame(blended, stepDur);
       }
     }
@@ -321,22 +390,26 @@ async function generate() {
     const first = mainCanvases[0];
     for (let k = 1; k < transitionSteps; k++) {
       const alpha = k / transitionSteps;
-      const blended = blendFrames(last, first, alpha, w, h);
+      const blended = blendFrames(last, first, alpha, w, h, tType);
       await writeFrame(blended, stepDur);
     }
   }
 
   const totalFrames = frameIdx;
+  console.log('Frames processed:', totalFrames, 'in', Math.round(performance.now() - startTime), 'ms');
   await ff.writeFile('frames.txt', new TextEncoder().encode(concatList));
 
+  const encodeStart = performance.now();
   if (format === 'gif') {
     showProgress('Encoding GIF...');
-    await ff.exec([
+    const gifArgs = [
       '-f', 'concat', '-safe', '0', '-i', 'frames.txt',
-      '-vf', 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+      '-vf', 'fps=10,split[s0][s1];[s0]palettegen=max_colors=128:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3',
       '-loop', loopGif ? '0' : '-1',
       'output.gif',
-    ]);
+    ];
+    console.log('GIF args:', gifArgs);
+    await ff.exec(gifArgs);
     const gifData = await ff.readFile('output.gif');
     lastOutputBlob = new Blob([gifData], { type: 'image/gif' });
     lastOutputFormat = 'gif';
@@ -353,17 +426,17 @@ async function generate() {
     let outFile, mimeType;
     if (format === 'mp4') {
       showProgress('Encoding MP4...');
-      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', crf, '-movflags', '+faststart', 'output.mp4');
+      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', crf, '-movflags', '+faststart', 'output.mp4');
       outFile = 'output.mp4';
       mimeType = 'video/mp4';
     } else if (format === 'webm') {
       showProgress('Encoding WebM...');
-      args.push('-c:v', 'libvpx-vp9', '-crf', crf, '-b:v', '0', 'output.webm');
+      args.push('-c:v', 'libvpx', '-crf', crf, '-b:v', '1M', '-deadline', 'realtime', 'output.webm');
       outFile = 'output.webm';
       mimeType = 'video/webm';
     } else if (format === 'mov') {
       showProgress('Encoding MOV...');
-      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', crf, 'output.mov');
+      args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', crf, 'output.mov');
       outFile = 'output.mov';
       mimeType = 'video/quicktime';
     } else if (format === 'mpeg') {
@@ -374,6 +447,7 @@ async function generate() {
       mimeType = 'video/mpeg';
     }
 
+    console.log('Video args:', args);
     await ff.exec(args);
     const videoData = await ff.readFile(outFile);
     lastOutputBlob = new Blob([videoData], { type: mimeType });
@@ -395,7 +469,7 @@ async function generate() {
 
   try {
     for (let i = 0; i < totalFrames; i++) {
-      await ff.deleteFile('frame_' + String(i).padStart(4, '0') + '.png');
+      await ff.deleteFile('frame_' + String(i).padStart(4, '0') + '.jpg');
     }
     await ff.deleteFile('frames.txt');
     await ff.deleteFile('output.gif');
@@ -435,10 +509,8 @@ export function setupOutput() {
     localStorage.setItem('mp4Quality', mp4QualitySlider.value);
   });
 
-  if (localStorage.getItem('includeRef') !== null) includeRefToggle.checked = localStorage.getItem('includeRef') === 'true';
   if (localStorage.getItem('loop') !== null) loopToggle.checked = localStorage.getItem('loop') === 'true';
   if (localStorage.getItem('frameCounter') === 'true') frameCounterToggle.checked = true;
-  includeRefToggle.addEventListener('change', () => localStorage.setItem('includeRef', includeRefToggle.checked));
   loopToggle.addEventListener('change', () => localStorage.setItem('loop', loopToggle.checked));
   frameCounterToggle.addEventListener('change', () => localStorage.setItem('frameCounter', frameCounterToggle.checked));
 

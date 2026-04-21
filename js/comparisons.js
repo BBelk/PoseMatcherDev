@@ -22,6 +22,13 @@ export function setUpdateClearAllVisibility(fn) {
   updateClearAllVisibility = fn;
 }
 
+function updateCardNumbers() {
+  comparisons.forEach((entry, i) => {
+    const badge = entry.card.querySelector('.card-number');
+    if (badge) badge.textContent = i + 1;
+  });
+}
+
 export async function ensureCmpPoses(entry) {
   if (entry.poses) return;
   if (!entry.img || !entry.img.naturalWidth) return;
@@ -74,7 +81,10 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
   clearBtn.textContent = '\u00d7';
   clearBtn.title = 'Remove';
 
-  card.append(img, canvas, metaEl, clearBtn);
+  const numBadge = document.createElement('div');
+  numBadge.className = 'card-number';
+
+  card.append(img, canvas, metaEl, clearBtn, numBadge);
   compareGrid.appendChild(card);
 
   const entry = { img, poses: null, date, card, dbKey: key, selectedPerson: 0, customPoint: { x: 0.5, y: 0.5 } };
@@ -90,15 +100,22 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
     const idx = comparisons.indexOf(entry);
     if (idx < 0) return;
     selectComparison(idx);
-    if (currentMode === 'custom' || (entry.poses && !entry.poses.length)) {
-      setModalCmpEntry(entry);
+
+    const hasPoses = entry.poses && entry.poses.length > 0;
+    const useCustomModal = currentMode === 'custom' || !hasPoses;
+
+    console.log('Card click:', { currentMode, hasPoses, useCustomModal, posesCount: entry.poses?.length });
+
+    setModalCmpEntry(entry);
+    if (useCustomModal) {
+      console.log('Opening custom point modal');
       openCustomPointModal(img, entry.customPoint, (pt) => {
         entry.customPoint = pt;
         drawOverlayForCmp(entry);
         saveCmpMeta(entry);
       });
-    } else if (entry.poses && entry.poses.length > 1) {
-      setModalCmpEntry(entry);
+    } else {
+      console.log('Opening person modal');
       openPersonModal(img, entry.poses, entry.selectedPerson, (sel) => {
         entry.selectedPerson = sel;
         drawOverlayForCmp(entry);
@@ -167,6 +184,7 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
       }
       drawOverlayForCmp(entry);
       updateClearAllVisibility();
+      updateCardNumbers();
       resolve();
     };
     img.onerror = resolve;
@@ -192,6 +210,7 @@ export function removeComparison(index) {
   dbDelete(entry.dbKey + '_meta');
   comparisons.splice(index, 1);
   updateClearAllVisibility();
+  updateCardNumbers();
   if (wasSelected) {
     setSelectedCmpIndex(-1);
     if (comparisons.length > 0) {
@@ -223,6 +242,7 @@ function reorderComparison(srcEntry, targetEntry, insertAfter) {
     setSelectedCmpIndex(-1);
     if (newSelIdx >= 0) selectComparison(newSelIdx);
   }
+  updateCardNumbers();
 }
 
 export function getSelectedComparison() {

@@ -260,7 +260,7 @@ function drawSinglePose(ctx, keypoints, displayRect, personId, isSelected) {
   }
 
   // Bones
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 1.5;
   ctx.lineCap = 'round';
   for (const [i, j] of COCO_SKELETON) {
     if (i >= keypoints.length || j >= keypoints.length) continue;
@@ -275,14 +275,14 @@ function drawSinglePose(ctx, keypoints, displayRect, personId, isSelected) {
   }
 
   // Joints
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1;
   for (const kp of keypoints) {
     if (kp.confidence < thresh) continue;
     const p = pt(kp);
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = '#000';
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   }

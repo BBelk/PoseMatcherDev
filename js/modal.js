@@ -28,10 +28,9 @@ personModal.addEventListener('click', (e) => {
 });
 
 export function openPersonModal(imgEl, poses, currentSelected, onSelect) {
-  if (poses.length <= 1) return;
-
-  personModal.querySelector('h3').textContent = 'Select a person';
-  personModal.querySelector('.modal-hint').textContent = 'Click a bounding box to select';
+  const multi = poses.length > 1;
+  personModal.querySelector('h3').textContent = multi ? 'Select a person' : 'Inspect pose';
+  personModal.querySelector('.modal-hint').textContent = multi ? 'Click a bounding box to select' : 'Click outside to close';
   personModal.style.display = '';
   modalCallback = onSelect;
 

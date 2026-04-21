@@ -15,23 +15,23 @@ export function drawNoHumansBanner(ctx) {
 export function drawCustomPoint(ctx, pt, rect) {
   const cx = rect.offsetX + pt.x * rect.width;
   const cy = rect.offsetY + pt.y * rect.height;
-  const r = 9;
-  ctx.lineWidth = 4;
+  const r = 5;
+  ctx.lineWidth = 2;
   ctx.strokeStyle = '#000';
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(cx - r - 5, cy); ctx.lineTo(cx + r + 5, cy);
-  ctx.moveTo(cx, cy - r - 5); ctx.lineTo(cx, cy + r + 5);
+  ctx.moveTo(cx - r - 3, cy); ctx.lineTo(cx + r + 3, cy);
+  ctx.moveTo(cx, cy - r - 3); ctx.lineTo(cx, cy + r + 3);
   ctx.stroke();
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1;
   ctx.strokeStyle = '#6cf';
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
   ctx.beginPath();
-  ctx.moveTo(cx - r - 5, cy); ctx.lineTo(cx + r + 5, cy);
-  ctx.moveTo(cx, cy - r - 5); ctx.lineTo(cx, cy + r + 5);
+  ctx.moveTo(cx - r - 3, cy); ctx.lineTo(cx + r + 3, cy);
+  ctx.moveTo(cx, cy - r - 3); ctx.lineTo(cx, cy + r + 3);
   ctx.stroke();
   ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, 1.5, 0, Math.PI * 2); ctx.fill();
 }
 
 export function drawOverlayForCmp(entry) {
