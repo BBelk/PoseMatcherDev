@@ -184,6 +184,7 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
     touchTimeout = setTimeout(() => {
       draggedEntry = entry;
       card.classList.add('dragging');
+      compareGrid.classList.add('touch-dragging');
     }, 300);
   }, { passive: true });
   card.addEventListener('touchmove', (e) => {
@@ -208,6 +209,7 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
       reorderComparison(draggedEntry, dropTargetEntry, dropInsertAfter);
     }
     card.classList.remove('dragging');
+    compareGrid.classList.remove('touch-dragging');
     draggedEntry = null;
     dropTargetEntry = null;
     clearDropIndicators();

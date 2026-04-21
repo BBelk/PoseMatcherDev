@@ -292,8 +292,6 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 
 #compare-grid {
   display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;
-  max-height: 340px;
-  overflow-y: auto;
 }
 
 .cmp-card {
@@ -305,7 +303,8 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 .cmp-card.selected { border-color: #6cf; }
 .cmp-card:first-child { border-color: #4a4; }
 .cmp-card:first-child .card-number { background: #4a4; }
-.cmp-card.dragging { opacity: 0.4; }
+.cmp-card.dragging { opacity: 0.4; touch-action: none; }
+#compare-grid.touch-dragging { overflow: hidden; touch-action: none; }
 
 .drop-indicator {
   flex-shrink: 0;
@@ -534,7 +533,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   }
 
   .cmp-card {
-    width: calc(50% - 0.25rem);
+    width: calc(33.333% - 0.34rem);
     height: auto;
     aspect-ratio: 3 / 4;
   }
