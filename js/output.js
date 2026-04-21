@@ -10,7 +10,6 @@ const outputFormatSelect = document.getElementById('output-format');
 const saveBtn = document.getElementById('save-btn');
 const errorBanner = document.getElementById('error-banner');
 
-const includeRefToggle = document.getElementById('include-ref-toggle');
 const loopToggle = document.getElementById('loop-toggle');
 const frameCounterToggle = document.getElementById('frame-counter-toggle');
 const frameDurationInput = document.getElementById('frame-duration');

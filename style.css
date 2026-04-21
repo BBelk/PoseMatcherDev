@@ -469,6 +469,27 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   color: #fff;
 }
 
+.redetect-btn {
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #555;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  color: #eee;
+  background: #383838;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+.redetect-btn:hover:not(:disabled) {
+  background: #4a4a4a;
+  border-color: #888;
+}
+.redetect-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* --- Mobile layout --- */
 
 @media (max-width: 640px) {

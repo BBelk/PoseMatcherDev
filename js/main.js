@@ -13,6 +13,11 @@ const scoreThreshVal = document.getElementById('score-thresh-val');
 const kpThreshSlider = document.getElementById('kp-thresh');
 const kpThreshVal = document.getElementById('kp-thresh-val');
 const restoreDefaultsBtn = document.getElementById('restore-defaults-btn');
+const humanPoseOptions = document.getElementById('human-pose-options');
+const detectionGroup = document.getElementById('detection-group');
+const redetectBtn = document.getElementById('redetect-btn');
+
+let lastDetectionSettings = { score: '0.3', kp: '0.3' };
 
 function updateClearAllVisibility() {
   clearAllBtn.style.display = comparisons.length > 0 ? '' : 'none';
@@ -57,7 +62,6 @@ function initSettings() {
     document.getElementById('output-width').value = '';
     document.getElementById('output-height').value = '';
     document.getElementById('output-format').value = 'gif';
-    document.getElementById('include-ref-toggle').checked = true;
     document.getElementById('loop-toggle').checked = true;
     document.getElementById('frame-counter-toggle').checked = false;
     document.getElementById('frame-duration').value = '0.5';
@@ -71,11 +75,42 @@ function initSettings() {
     POSE_CONFIG.confidenceThreshold = 0.3;
     localStorage.removeItem('scoreThresh');
     localStorage.removeItem('kpThresh');
+    updateRedetectBtn();
+  });
+
+  function updateModeVisibility() {
+    const isHuman = modeSelect.value === 'human';
+    humanPoseOptions.style.display = isHuman ? '' : 'none';
+    detectionGroup.style.display = isHuman ? '' : 'none';
+  }
+
+  function updateRedetectBtn() {
+    const changed = scoreThreshSlider.value !== lastDetectionSettings.score ||
+                    kpThreshSlider.value !== lastDetectionSettings.kp;
+    redetectBtn.disabled = !changed;
+  }
+
+  scoreThreshSlider.addEventListener('input', updateRedetectBtn);
+  kpThreshSlider.addEventListener('input', updateRedetectBtn);
+
+  redetectBtn.addEventListener('click', async () => {
+    redetectBtn.disabled = true;
+    redetectBtn.textContent = 'Detecting...';
+    for (const entry of comparisons) {
+      entry.poses = null;
+      await ensureCmpPoses(entry);
+      drawOverlayForCmp(entry);
+    }
+    lastDetectionSettings = { score: scoreThreshSlider.value, kp: kpThreshSlider.value };
+    redetectBtn.textContent = 'Re-detect All';
   });
 
   modeSelect.value = currentMode;
+  updateModeVisibility();
+
   modeSelect.addEventListener('change', async () => {
     setCurrentMode(modeSelect.value);
+    updateModeVisibility();
     if (currentMode === 'human') {
       for (const entry of comparisons) await ensureCmpPoses(entry);
     }

@@ -49,49 +49,51 @@
               <option value="custom" selected>Custom point</option>
             </select>
           </div>
-          <div class="setting-compact">
-            <label for="align-part">Position anchor</label>
-            <select id="align-part">
-              <option value="0" selected>Nose</option>
-              <option value="1">Left Eye</option>
-              <option value="2">Right Eye</option>
-              <option value="3">Left Ear</option>
-              <option value="4">Right Ear</option>
-              <option value="5">Left Shoulder</option>
-              <option value="6">Right Shoulder</option>
-              <option value="7">Left Elbow</option>
-              <option value="8">Right Elbow</option>
-              <option value="9">Left Wrist</option>
-              <option value="10">Right Wrist</option>
-              <option value="11">Left Hip</option>
-              <option value="12">Right Hip</option>
-              <option value="13">Left Knee</option>
-              <option value="14">Right Knee</option>
-              <option value="15">Left Ankle</option>
-              <option value="16">Right Ankle</option>
-            </select>
-          </div>
-          <div class="setting-compact">
-            <label for="scale-toggle">Match scale</label>
-            <span class="inline-sub">
-              <input type="checkbox" id="scale-toggle">
-              <select id="scale-pair">
-                <option value="shoulders" selected>Shoulders</option>
-                <option value="hips">Hips</option>
-                <option value="eyes">Eyes</option>
+          <div id="human-pose-options" style="display:none">
+            <div class="setting-compact">
+              <label for="align-part">Position anchor</label>
+              <select id="align-part">
+                <option value="0" selected>Nose</option>
+                <option value="1">Left Eye</option>
+                <option value="2">Right Eye</option>
+                <option value="3">Left Ear</option>
+                <option value="4">Right Ear</option>
+                <option value="5">Left Shoulder</option>
+                <option value="6">Right Shoulder</option>
+                <option value="7">Left Elbow</option>
+                <option value="8">Right Elbow</option>
+                <option value="9">Left Wrist</option>
+                <option value="10">Right Wrist</option>
+                <option value="11">Left Hip</option>
+                <option value="12">Right Hip</option>
+                <option value="13">Left Knee</option>
+                <option value="14">Right Knee</option>
+                <option value="15">Left Ankle</option>
+                <option value="16">Right Ankle</option>
               </select>
-            </span>
-          </div>
-          <div class="setting-compact">
-            <label for="rotate-toggle">Match rotation</label>
-            <span class="inline-sub">
-              <input type="checkbox" id="rotate-toggle">
-              <select id="rotate-pair">
-                <option value="shoulders" selected>Shoulders</option>
-                <option value="hips">Hips</option>
-                <option value="eyes">Eyes</option>
-              </select>
-            </span>
+            </div>
+            <div class="setting-compact">
+              <label for="scale-toggle">Match scale</label>
+              <span class="inline-sub">
+                <input type="checkbox" id="scale-toggle">
+                <select id="scale-pair">
+                  <option value="shoulders" selected>Shoulders</option>
+                  <option value="hips">Hips</option>
+                  <option value="eyes">Eyes</option>
+                </select>
+              </span>
+            </div>
+            <div class="setting-compact">
+              <label for="rotate-toggle">Match rotation</label>
+              <span class="inline-sub">
+                <input type="checkbox" id="rotate-toggle">
+                <select id="rotate-pair">
+                  <option value="shoulders" selected>Shoulders</option>
+                  <option value="hips">Hips</option>
+                  <option value="eyes">Eyes</option>
+                </select>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -122,10 +124,6 @@
             </span>
           </div>
           <div class="setting-row-pair">
-            <div class="setting-compact">
-              <label for="include-ref-toggle">Include first</label>
-              <input type="checkbox" id="include-ref-toggle" checked>
-            </div>
             <div class="setting-compact">
               <label for="loop-toggle">Loop</label>
               <input type="checkbox" id="loop-toggle" checked>
@@ -176,7 +174,7 @@
           </div>
         </div>
 
-        <div class="opt-group">
+        <div class="opt-group" id="detection-group" style="display:none">
           <div class="opt-group-title">Detection</div>
           <div class="setting-compact">
             <label for="score-thresh">Person threshold</label>
@@ -192,6 +190,7 @@
               <span id="kp-thresh-val">0.3</span>
             </span>
           </div>
+          <button id="redetect-btn" class="redetect-btn" disabled>Re-detect All</button>
         </div>
 
       </div>
