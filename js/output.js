@@ -275,60 +275,54 @@ async function generate() {
   const minFrameDur = Math.min(durFirst, durMiddle, durLast);
   if (tDur > minFrameDur) tDur = minFrameDur;
 
-  const transitionFps = 20;
+  const transitionFps = 10;
   const transitionSteps = Math.max(2, Math.round(tDur * transitionFps));
   const stepDur = tDur > 0 ? tDur / transitionSteps : 0;
+  const format = outputFormatSelect.value;
 
-  const frameCanvases = [];
-  const frameDurs = [];
+  const ff = await loadFFmpeg();
+  showProgress('Processing frames...');
+
+  let frameIdx = 0;
+  let concatList = '';
+
+  async function writeFrame(canvas, duration) {
+    const data = await canvasToUint8(canvas);
+    const name = 'frame_' + String(frameIdx).padStart(4, '0') + '.png';
+    await ff.writeFile(name, data);
+    concatList += "file '" + name + "'\nduration " + duration + "\n";
+    frameIdx++;
+  }
 
   for (let i = 0; i < mainCanvases.length; i++) {
     const isLast = i === mainCanvases.length - 1;
     const rawDur = i === 0 ? durFirst : isLast ? durLast : durMiddle;
     const holdDur = (useTransitions && tDur > 0 && !isLast) ? Math.max(0.01, rawDur - tDur) : rawDur;
 
-    frameCanvases.push(mainCanvases[i]);
-    frameDurs.push(holdDur);
+    await writeFrame(mainCanvases[i], holdDur);
+    showProgress('Processing ' + (i + 1) + '/' + mainCanvases.length + '...');
 
     if (useTransitions && tDur > 0 && !isLast) {
       const next = mainCanvases[i + 1];
       for (let k = 1; k < transitionSteps; k++) {
         const alpha = k / transitionSteps;
-        frameCanvases.push(blendFrames(mainCanvases[i], next, alpha, w, h));
-        frameDurs.push(stepDur);
+        const blended = blendFrames(mainCanvases[i], next, alpha, w, h);
+        await writeFrame(blended, stepDur);
       }
     }
   }
 
-  const format = outputFormatSelect.value;
   if (loopGif && useTransitions && tDur > 0 && mainCanvases.length > 1) {
-    frameDurs[frameDurs.length - 1] = Math.max(0.01, frameDurs[frameDurs.length - 1] - tDur);
     const last = mainCanvases[mainCanvases.length - 1];
     const first = mainCanvases[0];
     for (let k = 1; k < transitionSteps; k++) {
       const alpha = k / transitionSteps;
-      frameCanvases.push(blendFrames(last, first, alpha, w, h));
-      frameDurs.push(stepDur);
+      const blended = blendFrames(last, first, alpha, w, h);
+      await writeFrame(blended, stepDur);
     }
-    frameCanvases.push(first);
-    frameDurs.push(0.01);
   }
 
-  const frames = [];
-  for (const c of frameCanvases) frames.push(await canvasToUint8(c));
-
-  const ff = await loadFFmpeg();
-
-  showProgress('Writing frames...');
-  for (let i = 0; i < frames.length; i++) {
-    await ff.writeFile('frame_' + String(i).padStart(3, '0') + '.png', frames[i]);
-  }
-
-  let concatList = '';
-  for (let i = 0; i < frames.length; i++) {
-    concatList += "file 'frame_" + String(i).padStart(3, '0') + ".png'\n";
-    concatList += 'duration ' + frameDurs[i] + '\n';
-  }
+  const totalFrames = frameIdx;
   await ff.writeFile('frames.txt', new TextEncoder().encode(concatList));
 
   if (format === 'mp4') {
@@ -374,8 +368,8 @@ async function generate() {
   if (ph) ph.style.display = 'none';
 
   try {
-    for (let i = 0; i < frames.length; i++) {
-      await ff.deleteFile('frame_' + String(i).padStart(3, '0') + '.png');
+    for (let i = 0; i < totalFrames; i++) {
+      await ff.deleteFile('frame_' + String(i).padStart(4, '0') + '.png');
     }
     await ff.deleteFile('frames.txt');
     await ff.deleteFile('output.gif');
