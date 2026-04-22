@@ -253,6 +253,12 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 }
 #save-btn:hover { background: #4a4a4a; border-color: #888; }
 
+#output-size {
+  font-size: 0.75rem;
+  color: #888;
+  margin-left: 0.5rem;
+}
+
 /* --- Action bar (Options) --- */
 
 #action-bar {

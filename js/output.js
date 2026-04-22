@@ -1,6 +1,13 @@
 import { comparisons, currentMode } from './state.js';
 import { dlog, dlogError } from './debug.js';
-import { GIFEncoder, quantize, applyPalette } from '../lib/gifenc.js';
+import { GIFEncoder, quantize, applyPalette, prequantize } from '../lib/gifenc.js';
+import {
+  Output,
+  BufferTarget,
+  Mp4OutputFormat,
+  WebMOutputFormat,
+  CanvasSource,
+} from '../lib/mediabunny/mediabunny.min.mjs';
 
 const generateBtnDesktop = document.getElementById('generate-btn-desktop');
 const generateBtnMobile = document.getElementById('generate-btn-mobile');
@@ -10,10 +17,17 @@ const outputGif = document.getElementById('output-gif');
 const outputVideo = document.getElementById('output-video');
 const outputFormatSelect = document.getElementById('output-format');
 const saveBtn = document.getElementById('save-btn');
+const outputSizeLabel = document.getElementById('output-size');
 const errorBanner = document.getElementById('error-banner');
 
 const loopToggle = document.getElementById('loop-toggle');
 const frameCounterToggle = document.getElementById('frame-counter-toggle');
+const outputWidthInput = document.getElementById('output-width');
+const outputHeightInput = document.getElementById('output-height');
+const gifOptionsRow = document.getElementById('gif-options-row');
+const gifLossySlider = document.getElementById('gif-lossy');
+const gifLossyVal = document.getElementById('gif-lossy-val');
+const gifDiffToggle = document.getElementById('gif-diff-toggle');
 const frameDurationInput = document.getElementById('frame-duration');
 const customDurationsPanel = document.getElementById('custom-durations');
 const singleDurationRow = document.getElementById('single-duration-row');
@@ -43,53 +57,6 @@ const PAIR_INDICES = {
   hips: [11, 12],
   eyes: [1, 2],
 };
-
-let ffmpeg = null;
-
-async function loadFFmpeg() {
-  if (ffmpeg && ffmpeg.loaded) {
-    dlog('info', 'FFmpeg already loaded, reusing');
-    return ffmpeg;
-  }
-
-  dlog('info', 'Loading FFmpeg WASM...');
-  ffmpeg = new FFmpegWASM.FFmpeg();
-
-  ffmpeg.on('progress', ({ progress }) => {
-    if (progress > 0 && progress <= 1) {
-      // Encoding is 70-100% of total progress
-      const encodePct = Math.round(progress * 100);
-      const totalPct = 70 + Math.round(progress * 30);
-      showProgress(`Encoding video ${encodePct}%`, totalPct);
-      if (encodePct % 25 === 0) {
-        dlog('info', 'Encoding progress', { percent: encodePct });
-      }
-    }
-  });
-
-  const base = new URL('.', location.href).href;
-  const loadStart = performance.now();
-  try {
-    await ffmpeg.load({
-      coreURL: base + 'lib/ffmpeg/ffmpeg-core.js',
-      wasmURL: base + 'lib/ffmpeg/ffmpeg-core.wasm',
-    });
-    dlog('info', 'FFmpeg loaded', { ms: Math.round(performance.now() - loadStart) });
-  } catch (err) {
-    dlogError('FFmpeg load failed', err);
-    throw err;
-  }
-
-  return ffmpeg;
-}
-
-function canvasToUint8(canvas) {
-  return new Promise(resolve => {
-    canvas.toBlob(async (blob) => {
-      resolve(new Uint8Array(await blob.arrayBuffer()));
-    }, 'image/jpeg', 0.92);
-  });
-}
 
 function transitionFade(canvasA, canvasB, alpha, w, h) {
   const c = document.createElement('canvas');
@@ -377,10 +344,37 @@ function renderCmpFrame(ref, cmp, w, h, frameNum) {
 async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur, durFirst, durMiddle, durLast) {
   const startTime = performance.now();
 
-  dlog('info', 'Using gifenc for GIF encoding');
+  dlog('info', 'Using gifenc for GIF encoding with global palette + frame diff');
+  showProgress('Building color palette...', 5);
+
+  // Build global palette by sampling from source images (reserve 255 colors, index 0 = transparent)
+  const sampleSize = 128;
+  const sampleCanvas = document.createElement('canvas');
+  sampleCanvas.width = sampleSize;
+  sampleCanvas.height = sampleSize;
+  const sampleCtx = sampleCanvas.getContext('2d');
+
+  const samplesPerImage = sampleSize * sampleSize * 4;
+  const allSamples = new Uint8Array(validCmps.length * samplesPerImage);
+
+  for (let i = 0; i < validCmps.length; i++) {
+    const img = validCmps[i].img;
+    sampleCtx.drawImage(img, 0, 0, sampleSize, sampleSize);
+    const imageData = sampleCtx.getImageData(0, 0, sampleSize, sampleSize);
+    allSamples.set(imageData.data, i * samplesPerImage);
+  }
+
+  // Quantize to 255 colors, prepend transparent color at index 0
+  const basePalette = quantize(allSamples, 255);
+  const globalPalette = [[0, 0, 0], ...basePalette]; // Index 0 = transparent
+  const TRANSPARENT_INDEX = 0;
+  const DIFF_THRESHOLD = 32; // Pixels within this RGB distance are "same"
+
+  dlog('info', 'Global palette built', { colors: globalPalette.length, sampledImages: validCmps.length });
 
   const gif = GIFEncoder();
   let frameCount = 0;
+  let prevFrameData = null; // Store previous frame's RGBA data for diffing
 
   const minFrameDur = Math.min(durFirst, durMiddle, durLast);
   let actualTDur = tDur;
@@ -391,23 +385,64 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
   const stepDurMs = actualTDur > 0 ? Math.round((actualTDur / transitionSteps) * 1000) : 0;
   const doTransitions = useTransitions && validCmps.length > 1;
 
-  // Estimate total frames for progress
   const transFramesPerGap = doTransitions ? (transitionSteps - 1) : 0;
   const loopTransFrames = (loopGif && doTransitions && actualTDur > 0) ? (transitionSteps - 1) : 0;
   const totalEstimatedFrames = validCmps.length + (validCmps.length - 1) * transFramesPerGap + loopTransFrames;
+
+  const LOSSY_ROUND = parseInt(gifLossySlider.value) || 0;
+  const USE_FRAME_DIFF = gifDiffToggle.checked;
 
   function encodeFrame(canvas, delayMs) {
     const ctx = canvas.getContext('2d');
     const imageData = ctx.getImageData(0, 0, w, h);
     const { data } = imageData;
+    const isFirstFrame = frameCount === 0;
 
-    const palette = quantize(data, 256);
-    const index = applyPalette(data, palette);
+    // Lossy: round pixel values to create more repeated sequences for LZW
+    if (LOSSY_ROUND > 0) {
+      prequantize(data, { roundRGB: LOSSY_ROUND });
+    }
 
-    gif.writeFrame(index, w, h, { palette, delay: delayMs });
+    const index = applyPalette(data, globalPalette);
+
+    // Frame differencing: mark unchanged pixels as transparent
+    let usedDiff = false;
+    if (USE_FRAME_DIFF && !isFirstFrame && prevFrameData) {
+      usedDiff = true;
+      const pixelCount = w * h;
+      let unchangedCount = 0;
+      for (let i = 0; i < pixelCount; i++) {
+        const ri = i * 4;
+        const dr = Math.abs(data[ri] - prevFrameData[ri]);
+        const dg = Math.abs(data[ri + 1] - prevFrameData[ri + 1]);
+        const db = Math.abs(data[ri + 2] - prevFrameData[ri + 2]);
+        if (dr + dg + db < DIFF_THRESHOLD) {
+          index[i] = TRANSPARENT_INDEX;
+          unchangedCount++;
+        }
+      }
+      dlog('info', 'Frame diff', { unchanged: Math.round(unchangedCount / pixelCount * 100) + '%' });
+    }
+
+    // Store current frame for next diff (copy the data)
+    if (USE_FRAME_DIFF) {
+      prevFrameData = new Uint8Array(data);
+    }
+
+    const frameOpts = {
+      palette: globalPalette,
+      delay: delayMs,
+      dispose: usedDiff ? 1 : 0, // 1 = keep previous frame (required for transparency)
+    };
+    if (usedDiff) {
+      frameOpts.transparent = true;
+      frameOpts.transparentIndex = TRANSPARENT_INDEX;
+    }
+
+    gif.writeFrame(index, w, h, frameOpts);
     frameCount++;
 
-    const pct = Math.round((frameCount / totalEstimatedFrames) * 100);
+    const pct = 10 + Math.round((frameCount / totalEstimatedFrames) * 90);
     showProgress(`Encoding frame ${frameCount}/${totalEstimatedFrames}`, pct);
   }
 
@@ -415,7 +450,6 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
   let frameNum = 1;
   let prevCanvas = null;
 
-  // Helper to yield to browser for repaint
   const yieldToBrowser = () => new Promise(r => setTimeout(r, 0));
 
   try {
@@ -495,33 +529,10 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
 async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tDur, durFirst, durMiddle, durLast, format) {
   const startTime = performance.now();
 
-  showProgress('Loading FFmpeg...', null);
-  let ff;
-  try {
-    ff = await loadFFmpeg();
-  } catch (err) {
-    return { success: false, error: err };
-  }
-
-  dlog('info', 'Rendering frames for video...');
-  showProgress('Rendering frames...', 5);
+  dlog('info', 'Using mediabunny for video encoding', { format });
+  showProgress('Initializing encoder...', 5);
 
   const ref = validCmps[0];
-  let frameNum = 1;
-  const mainCanvases = [];
-
-  mainCanvases.push(renderRefFrame(ref, w, h, frameNum++));
-  for (let i = 1; i < validCmps.length; i++) {
-    const c = renderCmpFrame(ref, validCmps[i], w, h, frameNum++);
-    if (c) mainCanvases.push(c);
-    showProgress(`Rendering ${i + 1}/${validCmps.length}...`, 5 + Math.round((i / validCmps.length) * 15));
-  }
-
-  if (!mainCanvases.length) {
-    return { success: false, error: new Error('No frames to encode') };
-  }
-
-  dlog('info', 'Main frames rendered', { count: mainCanvases.length });
 
   const minFrameDur = Math.min(durFirst, durMiddle, durLast);
   let actualTDur = tDur;
@@ -530,111 +541,130 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
   const transitionFps = 10;
   const transitionSteps = Math.max(2, Math.round(actualTDur * transitionFps));
   const stepDur = actualTDur > 0 ? actualTDur / transitionSteps : 0;
-  const doTransitions = useTransitions && mainCanvases.length > 1;
+  const doTransitions = useTransitions && validCmps.length > 1;
 
-  // Estimate total frames for progress
   const transFramesPerGap = doTransitions ? (transitionSteps - 1) : 0;
   const loopTransFrames = (loopGif && doTransitions && actualTDur > 0) ? (transitionSteps - 1) : 0;
-  const totalEstimatedFrames = mainCanvases.length + (mainCanvases.length - 1) * transFramesPerGap + loopTransFrames;
+  const totalEstimatedFrames = validCmps.length + (validCmps.length - 1) * transFramesPerGap + loopTransFrames;
+
+  // Create reusable canvas for rendering frames
+  const frameCanvas = document.createElement('canvas');
+  frameCanvas.width = w;
+  frameCanvas.height = h;
+
+  // Map CRF to bitrate (rough approximation: lower CRF = higher quality)
+  const crf = parseInt(mp4QualitySlider.value) || 23;
+  const baseBitrate = w * h * 0.1;
+  const qualityMultiplier = Math.max(0.5, (51 - crf) / 28);
+  const bitrate = Math.round(baseBitrate * qualityMultiplier);
+
+  let outputFormat, mimeType;
+  if (format === 'webm') {
+    outputFormat = new WebMOutputFormat();
+    mimeType = 'video/webm';
+  } else {
+    outputFormat = new Mp4OutputFormat();
+    mimeType = format === 'mov' ? 'video/quicktime' : 'video/mp4';
+  }
+
+  const target = new BufferTarget();
+  const output = new Output({ format: outputFormat, target });
+
+  const videoSource = new CanvasSource(frameCanvas, {
+    codec: format === 'webm' ? 'vp9' : 'avc',
+    bitrate,
+  });
+  output.addVideoTrack(videoSource);
 
   let frameIdx = 0;
-  let concatList = '';
-  let totalBytesWritten = 0;
+  let timestamp = 0;
 
-  async function writeFrame(canvas, duration) {
-    const data = await canvasToUint8(canvas);
-    totalBytesWritten += data.byteLength;
-    const name = 'frame_' + String(frameIdx).padStart(4, '0') + '.jpg';
-    await ff.writeFile(name, data);
-    concatList += "file '" + name + "'\nduration " + duration + "\n";
+  async function addFrame(canvas, duration) {
+    // Copy to our reusable canvas
+    const ctx = frameCanvas.getContext('2d');
+    ctx.drawImage(canvas, 0, 0);
+
+    await videoSource.add(timestamp, duration);
+    timestamp += duration;
     frameIdx++;
 
-    // Progress: 20-70% is frame processing
-    const pct = 20 + Math.round((frameIdx / totalEstimatedFrames) * 50);
-    showProgress(`Processing frame ${frameIdx}/${totalEstimatedFrames}`, pct);
+    const pct = 10 + Math.round((frameIdx / totalEstimatedFrames) * 80);
+    showProgress(`Encoding frame ${frameIdx}/${totalEstimatedFrames}`, pct);
   }
 
   try {
-    for (let i = 0; i < mainCanvases.length; i++) {
-      if (abortGeneration) return { success: false, error: 'Aborted' };
+    await output.start();
+    dlog('info', 'Encoder started', { bitrate, codec: format === 'webm' ? 'vp9' : 'avc' });
 
-      const isLast = i === mainCanvases.length - 1;
-      const rawDur = i === 0 ? durFirst : isLast ? durLast : durMiddle;
+    let frameNum = 1;
+    let prevCanvas = null;
+
+    for (let i = 0; i < validCmps.length; i++) {
+      if (abortGeneration) {
+        await output.finalize();
+        return { success: false, error: 'Aborted' };
+      }
+
+      const isFirst = i === 0;
+      const isLast = i === validCmps.length - 1;
+      const rawDur = isFirst ? durFirst : isLast ? durLast : durMiddle;
       const holdDur = (doTransitions && actualTDur > 0 && !isLast) ? Math.max(0.01, rawDur - actualTDur) : rawDur;
 
-      await writeFrame(mainCanvases[i], holdDur);
+      const canvas = isFirst
+        ? renderRefFrame(ref, w, h, frameNum++)
+        : renderCmpFrame(ref, validCmps[i], w, h, frameNum++);
+
+      if (!canvas) continue;
+
+      await addFrame(canvas, holdDur);
 
       if (doTransitions && actualTDur > 0 && !isLast) {
-        const next = mainCanvases[i + 1];
-        for (let k = 1; k < transitionSteps; k++) {
-          if (abortGeneration) return { success: false, error: 'Aborted' };
-          const alpha = k / transitionSteps;
-          const blended = blendFrames(mainCanvases[i], next, alpha, w, h, tType);
-          await writeFrame(blended, stepDur);
+        const nextCanvas = renderCmpFrame(ref, validCmps[i + 1], w, h, frameNum);
+        if (nextCanvas) {
+          for (let k = 1; k < transitionSteps; k++) {
+            if (abortGeneration) {
+              await output.finalize();
+              return { success: false, error: 'Aborted' };
+            }
+            const alpha = k / transitionSteps;
+            const blended = blendFrames(canvas, nextCanvas, alpha, w, h, tType);
+            await addFrame(blended, stepDur);
+          }
         }
       }
 
+      prevCanvas = canvas;
+
       if (i % 5 === 0 || isLast) {
-        dlog('info', 'Frame progress', {
-          frame: i + 1,
-          of: mainCanvases.length,
-          totalWritten: frameIdx,
-          bytesMB: Math.round(totalBytesWritten / 1024 / 1024 * 100) / 100
-        });
+        dlog('info', 'Frame progress', { frame: i + 1, of: validCmps.length, totalEncoded: frameIdx });
       }
     }
 
-    if (loopGif && doTransitions && actualTDur > 0 && mainCanvases.length > 1) {
+    if (loopGif && doTransitions && actualTDur > 0 && prevCanvas) {
       dlog('info', 'Adding loop transition frames...');
-      const last = mainCanvases[mainCanvases.length - 1];
-      const first = mainCanvases[0];
+      const firstCanvas = renderRefFrame(ref, w, h, 1);
       for (let k = 1; k < transitionSteps; k++) {
-        if (abortGeneration) return { success: false, error: 'Aborted' };
+        if (abortGeneration) {
+          await output.finalize();
+          return { success: false, error: 'Aborted' };
+        }
         const alpha = k / transitionSteps;
-        const blended = blendFrames(last, first, alpha, w, h, tType);
-        await writeFrame(blended, stepDur);
+        const blended = blendFrames(prevCanvas, firstCanvas, alpha, w, h, tType);
+        await addFrame(blended, stepDur);
       }
     }
-  } catch (err) {
-    dlogError('Frame processing failed', err);
-    return { success: false, error: err };
-  }
 
-  const totalFrames = frameIdx;
-  dlog('info', 'All frames written', { totalFrames, totalMB: Math.round(totalBytesWritten / 1024 / 1024 * 100) / 100 });
-  await ff.writeFile('frames.txt', new TextEncoder().encode(concatList));
+    showProgress('Finalizing video...', 95);
+    await output.finalize();
 
-  const needsEvenDims = ['mp4', 'mov'].includes(format);
-  const vf = (needsEvenDims && (w % 2 || h % 2)) ? 'pad=ceil(iw/2)*2:ceil(ih/2)*2' : null;
-  const crf = mp4QualitySlider.value;
-  const args = ['-f', 'concat', '-safe', '0', '-i', 'frames.txt'];
-  if (vf) args.push('-vf', vf);
+    const videoData = target.buffer;
+    dlog('info', 'Video encoded', {
+      frames: frameIdx,
+      bytes: videoData.byteLength,
+      mb: Math.round(videoData.byteLength / 1024 / 1024 * 100) / 100,
+      ms: Math.round(performance.now() - startTime)
+    });
 
-  let outFile, mimeType;
-  if (format === 'mp4') {
-    showProgress('Encoding MP4...', 70);
-    args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', crf, '-movflags', '+faststart', 'output.mp4');
-    outFile = 'output.mp4';
-    mimeType = 'video/mp4';
-  } else if (format === 'webm') {
-    showProgress('Encoding WebM...', 70);
-    args.push('-c:v', 'libvpx', '-crf', crf, '-b:v', '1M', '-deadline', 'realtime', 'output.webm');
-    outFile = 'output.webm';
-    mimeType = 'video/webm';
-  } else if (format === 'mov') {
-    showProgress('Encoding MOV...', 70);
-    args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', crf, 'output.mov');
-    outFile = 'output.mov';
-    mimeType = 'video/quicktime';
-  }
-
-  dlog('info', 'Video ffmpeg args', { args: args.join(' '), crf });
-
-  try {
-    await ff.exec(args);
-    dlog('info', 'Video encode complete, reading output...');
-    const videoData = await ff.readFile(outFile);
-    dlog('info', 'Video output size', { bytes: videoData.byteLength, mb: Math.round(videoData.byteLength / 1024 / 1024 * 100) / 100 });
     lastOutputBlob = new Blob([videoData], { type: mimeType });
     lastOutputFormat = format;
     outputVideo.src = URL.createObjectURL(lastOutputBlob);
@@ -642,21 +672,12 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
     outputVideo.style.display = 'block';
     outputVideo.play();
     outputGif.style.display = 'none';
+
+    return { success: true, ms: Math.round(performance.now() - startTime) };
   } catch (err) {
     dlogError('Video encoding failed', err);
     return { success: false, error: err };
   }
-
-  // Cleanup
-  try {
-    for (let i = 0; i < totalFrames; i++) {
-      await ff.deleteFile('frame_' + String(i).padStart(4, '0') + '.jpg');
-    }
-    await ff.deleteFile('frames.txt');
-    await ff.deleteFile(outFile);
-  } catch (_) {}
-
-  return { success: true, ms: Math.round(performance.now() - startTime) };
 }
 
 async function generate() {
@@ -746,6 +767,14 @@ async function generate() {
   overlayCanvas.style.display = 'none';
   clearError();
   saveBtn.style.display = '';
+
+  const sizeBytes = lastOutputBlob.size;
+  const sizeText = sizeBytes >= 1024 * 1024
+    ? (sizeBytes / 1024 / 1024).toFixed(1) + ' MB'
+    : Math.round(sizeBytes / 1024) + ' KB';
+  outputSizeLabel.textContent = `${w}x${h} · ${sizeText}`;
+  outputSizeLabel.style.display = '';
+
   outputBox.classList.remove('empty');
   outputBox.style.aspectRatio = w + ' / ' + h;
 }
@@ -758,15 +787,26 @@ export function setupOutput() {
   const _savedOutputFormat = localStorage.getItem('outputFormat');
   if (_savedOutputFormat) outputFormatSelect.value = _savedOutputFormat;
 
-  function updateVideoQualityVisibility() {
-    const isVideo = ['mp4', 'webm', 'mov'].includes(outputFormatSelect.value);
+  // Load saved output dimensions
+  const _savedWidth = localStorage.getItem('outputWidth');
+  const _savedHeight = localStorage.getItem('outputHeight');
+  if (_savedWidth) outputWidthInput.value = _savedWidth;
+  if (_savedHeight) outputHeightInput.value = _savedHeight;
+  outputWidthInput.addEventListener('change', () => localStorage.setItem('outputWidth', outputWidthInput.value));
+  outputHeightInput.addEventListener('change', () => localStorage.setItem('outputHeight', outputHeightInput.value));
+
+  function updateFormatOptionsVisibility() {
+    const format = outputFormatSelect.value;
+    const isVideo = ['mp4', 'webm', 'mov'].includes(format);
+    const isGif = format === 'gif';
     mp4QualityRow.style.display = isVideo ? '' : 'none';
+    gifOptionsRow.style.display = isGif ? '' : 'none';
   }
-  updateVideoQualityVisibility();
+  updateFormatOptionsVisibility();
 
   outputFormatSelect.addEventListener('change', () => {
     localStorage.setItem('outputFormat', outputFormatSelect.value);
-    updateVideoQualityVisibility();
+    updateFormatOptionsVisibility();
   });
 
   const _savedMp4Quality = localStorage.getItem('mp4Quality');
@@ -782,6 +822,26 @@ export function setupOutput() {
     mp4QualitySlider.value = mp4QualityVal.value;
     localStorage.setItem('mp4Quality', mp4QualityVal.value);
   });
+
+  // GIF options
+  const _savedGifLossy = localStorage.getItem('gifLossy');
+  if (_savedGifLossy) {
+    gifLossySlider.value = _savedGifLossy;
+    gifLossyVal.value = _savedGifLossy;
+  }
+  gifLossySlider.addEventListener('input', () => {
+    gifLossyVal.value = gifLossySlider.value;
+    localStorage.setItem('gifLossy', gifLossySlider.value);
+  });
+  gifLossyVal.addEventListener('input', () => {
+    gifLossySlider.value = gifLossyVal.value;
+    localStorage.setItem('gifLossy', gifLossyVal.value);
+  });
+
+  if (localStorage.getItem('gifDiff') !== null) {
+    gifDiffToggle.checked = localStorage.getItem('gifDiff') === 'true';
+  }
+  gifDiffToggle.addEventListener('change', () => localStorage.setItem('gifDiff', gifDiffToggle.checked));
 
   if (localStorage.getItem('loop') !== null) loopToggle.checked = localStorage.getItem('loop') === 'true';
   if (localStorage.getItem('frameCounter') === 'true') frameCounterToggle.checked = true;
@@ -879,6 +939,7 @@ export function setupOutput() {
 export function clearOutput() {
   lastOutputBlob = null;
   saveBtn.style.display = 'none';
+  outputSizeLabel.style.display = 'none';
   outputGif.style.display = 'none';
   outputGif.src = '';
   outputVideo.style.display = 'none';

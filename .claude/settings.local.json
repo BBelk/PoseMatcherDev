@@ -11,7 +11,11 @@
       "WebFetch(domain:chromewebstore.google.com)",
       "Bash(npm start *)",
       "WebFetch(domain:dev.to)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:mediabunny.dev)",
+      "Bash(pkill -f \"serve \\\\.\")",
+      "Bash(taskkill //F //IM node.exe)"
     ]
   }
 }

@@ -125,6 +125,19 @@
               <input type="number" id="mp4-quality-val" min="18" max="35" step="1" value="23">
             </span>
           </div>
+          <div id="gif-options-row">
+            <div class="setting-compact">
+              <label for="gif-lossy">Lossy <span class="label-hint">(0=lossless, 30=max)</span></label>
+              <span class="inline-sub">
+                <input type="range" id="gif-lossy" min="0" max="30" step="1" value="15">
+                <input type="number" id="gif-lossy-val" min="0" max="30" step="1" value="15">
+              </span>
+            </div>
+            <div class="setting-compact">
+              <label for="gif-diff-toggle">Frame diff</label>
+              <input type="checkbox" id="gif-diff-toggle" checked>
+            </div>
+          </div>
           <div class="setting-row-pair">
             <div class="setting-compact">
               <label for="loop-toggle">Loop</label>
@@ -208,6 +221,7 @@
       <h2>3. Output</h2>
       <button id="generate-btn-desktop">Generate Timelapse</button>
       <button id="save-btn" style="display:none">Save Output</button>
+      <span id="output-size" style="display:none"></span>
     </div>
     <div id="output-box" class="pose-box empty">
       <div id="progress-container" class="progress-container idle">
@@ -254,7 +268,6 @@
   <button id="debug-toggle" class="debug-toggle">🔧</button>
 
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.min.js"></script>
-  <script src="lib/ffmpeg/ffmpeg.js"></script>
   <script src="pose.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>
