@@ -35,6 +35,8 @@ const mp4QualityVal = document.getElementById('mp4-quality-val');
 let lastOutputBlob = null;
 let lastOutputFormat = 'gif';
 let customDurationsActive = localStorage.getItem('customDurationsActive') === 'true';
+let isGenerating = false;
+let abortGeneration = false;
 
 const PAIR_INDICES = {
   shoulders: [5, 6],
@@ -51,15 +53,16 @@ async function loadFFmpeg() {
   }
 
   dlog('info', 'Loading FFmpeg WASM...');
-  showProgress('Loading FFmpeg...');
   ffmpeg = new FFmpegWASM.FFmpeg();
 
   ffmpeg.on('progress', ({ progress }) => {
     if (progress > 0 && progress <= 1) {
-      const pct = Math.round(progress * 100);
-      showProgress('Encoding: ' + pct + '%');
-      if (pct % 25 === 0) {
-        dlog('info', 'Encoding progress', { percent: pct });
+      // Encoding is 70-100% of total progress
+      const encodePct = Math.round(progress * 100);
+      const totalPct = 70 + Math.round(progress * 30);
+      showProgress(`Encoding video ${encodePct}%`, totalPct);
+      if (encodePct % 25 === 0) {
+        dlog('info', 'Encoding progress', { percent: encodePct });
       }
     }
   });
@@ -168,12 +171,39 @@ function blendFrames(canvasA, canvasB, alpha, w, h, type) {
   }
 }
 
-function showProgress(msg) {
-  const ph = outputBox.querySelector('.placeholder');
-  if (ph) {
-    ph.textContent = msg;
-    ph.style.display = '';
+const progressContainer = document.getElementById('progress-container');
+const progressText = document.getElementById('progress-text');
+const progressBar = document.getElementById('progress-bar');
+
+function showProgress(msg, percent = null) {
+  console.log('showProgress:', msg, percent, progressContainer, progressBar);
+  if (!progressContainer || !progressBar) {
+    console.error('Progress elements not found!');
+    return;
   }
+  progressContainer.classList.remove('idle');
+  progressContainer.style.display = 'flex';
+  progressText.textContent = msg;
+
+  if (percent === null) {
+    progressBar.classList.add('indeterminate');
+    progressBar.style.width = '';
+  } else {
+    progressBar.classList.remove('indeterminate');
+    progressBar.style.width = Math.min(100, Math.max(0, percent)) + '%';
+  }
+}
+
+function hideProgress() {
+  progressContainer.style.display = 'none';
+}
+
+function showIdle(msg) {
+  progressContainer.classList.add('idle');
+  progressContainer.style.display = 'flex';
+  progressText.textContent = msg;
+  progressBar.classList.remove('indeterminate');
+  progressBar.style.width = '0%';
 }
 
 function showError(msg) {
@@ -187,15 +217,39 @@ function clearError() {
 }
 
 function resetOutput() {
+  console.log('resetOutput called');
+
+  // Revoke old blob URLs to free memory
+  try {
+    if (outputGif.src && outputGif.src.startsWith('blob:')) {
+      URL.revokeObjectURL(outputGif.src);
+    }
+    if (outputVideo.src && outputVideo.src.startsWith('blob:')) {
+      URL.revokeObjectURL(outputVideo.src);
+    }
+  } catch (e) {
+    console.log('Error revoking URLs:', e);
+  }
+
+  // Clear and hide old output
+  console.log('Hiding output elements, current gif display:', outputGif.style.display);
+  outputVideo.pause();
+  outputGif.removeAttribute('src');
+  outputVideo.removeAttribute('src');
   outputGif.style.display = 'none';
-  outputGif.src = '';
   outputVideo.style.display = 'none';
-  outputVideo.src = '';
   overlayCanvas.style.display = 'none';
+  console.log('After hiding, gif display:', outputGif.style.display, 'video display:', outputVideo.style.display);
+
+  // Reset box state
+  console.log('Adding empty class to outputBox:', outputBox);
   outputBox.classList.add('empty');
-  showProgress('Preparing...');
-  lastOutputBlob = null;
+  outputBox.style.aspectRatio = '';
   saveBtn.style.display = 'none';
+  lastOutputBlob = null;
+
+  // Show progress with indeterminate spinner
+  showProgress('Preparing...');
 }
 
 function computeAlignTransform(refKps, cmpKps, refImgEl, cmpImgEl, w, h, refCustomPt, cmpCustomPt) {
@@ -324,7 +378,6 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
   const startTime = performance.now();
 
   dlog('info', 'Using gifenc for GIF encoding');
-  showProgress('Encoding GIF...');
 
   const gif = GIFEncoder();
   let frameCount = 0;
@@ -338,6 +391,11 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
   const stepDurMs = actualTDur > 0 ? Math.round((actualTDur / transitionSteps) * 1000) : 0;
   const doTransitions = useTransitions && validCmps.length > 1;
 
+  // Estimate total frames for progress
+  const transFramesPerGap = doTransitions ? (transitionSteps - 1) : 0;
+  const loopTransFrames = (loopGif && doTransitions && actualTDur > 0) ? (transitionSteps - 1) : 0;
+  const totalEstimatedFrames = validCmps.length + (validCmps.length - 1) * transFramesPerGap + loopTransFrames;
+
   function encodeFrame(canvas, delayMs) {
     const ctx = canvas.getContext('2d');
     const imageData = ctx.getImageData(0, 0, w, h);
@@ -348,14 +406,22 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
 
     gif.writeFrame(index, w, h, { palette, delay: delayMs });
     frameCount++;
+
+    const pct = Math.round((frameCount / totalEstimatedFrames) * 100);
+    showProgress(`Encoding frame ${frameCount}/${totalEstimatedFrames}`, pct);
   }
 
   const ref = validCmps[0];
   let frameNum = 1;
   let prevCanvas = null;
 
+  // Helper to yield to browser for repaint
+  const yieldToBrowser = () => new Promise(r => setTimeout(r, 0));
+
   try {
     for (let i = 0; i < validCmps.length; i++) {
+      if (abortGeneration) return { success: false, error: 'Aborted' };
+
       const isFirst = i === 0;
       const isLast = i === validCmps.length - 1;
       const rawDur = isFirst ? durFirst : isLast ? durLast : durMiddle;
@@ -369,7 +435,9 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
       if (!canvas) continue;
 
       encodeFrame(canvas, holdMs);
-      showProgress('Encoding ' + (i + 1) + '/' + validCmps.length + '...');
+
+      // Yield to browser so progress bar can update
+      await yieldToBrowser();
 
       if (i % 3 === 0 || isLast) {
         dlog('info', 'GIF frame progress', { frame: i + 1, of: validCmps.length, totalFrames: frameCount });
@@ -379,6 +447,7 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
         const nextCanvas = renderCmpFrame(ref, validCmps[i + 1], w, h, frameNum);
         if (nextCanvas) {
           for (let k = 1; k < transitionSteps; k++) {
+            if (abortGeneration) return { success: false, error: 'Aborted' };
             const alpha = k / transitionSteps;
             const blended = blendFrames(canvas, nextCanvas, alpha, w, h, tType);
             encodeFrame(blended, stepDurMs);
@@ -393,6 +462,7 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
       dlog('info', 'Adding loop transition frames...');
       const firstCanvas = renderRefFrame(ref, w, h, 1);
       for (let k = 1; k < transitionSteps; k++) {
+        if (abortGeneration) return { success: false, error: 'Aborted' };
         const alpha = k / transitionSteps;
         const blended = blendFrames(prevCanvas, firstCanvas, alpha, w, h, tType);
         encodeFrame(blended, stepDurMs);
@@ -425,6 +495,7 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
 async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tDur, durFirst, durMiddle, durLast, format) {
   const startTime = performance.now();
 
+  showProgress('Loading FFmpeg...', null);
   let ff;
   try {
     ff = await loadFFmpeg();
@@ -433,7 +504,7 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
   }
 
   dlog('info', 'Rendering frames for video...');
-  showProgress('Rendering frames...');
+  showProgress('Rendering frames...', 5);
 
   const ref = validCmps[0];
   let frameNum = 1;
@@ -443,6 +514,7 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
   for (let i = 1; i < validCmps.length; i++) {
     const c = renderCmpFrame(ref, validCmps[i], w, h, frameNum++);
     if (c) mainCanvases.push(c);
+    showProgress(`Rendering ${i + 1}/${validCmps.length}...`, 5 + Math.round((i / validCmps.length) * 15));
   }
 
   if (!mainCanvases.length) {
@@ -460,7 +532,10 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
   const stepDur = actualTDur > 0 ? actualTDur / transitionSteps : 0;
   const doTransitions = useTransitions && mainCanvases.length > 1;
 
-  showProgress('Processing frames...');
+  // Estimate total frames for progress
+  const transFramesPerGap = doTransitions ? (transitionSteps - 1) : 0;
+  const loopTransFrames = (loopGif && doTransitions && actualTDur > 0) ? (transitionSteps - 1) : 0;
+  const totalEstimatedFrames = mainCanvases.length + (mainCanvases.length - 1) * transFramesPerGap + loopTransFrames;
 
   let frameIdx = 0;
   let concatList = '';
@@ -473,20 +548,26 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
     await ff.writeFile(name, data);
     concatList += "file '" + name + "'\nduration " + duration + "\n";
     frameIdx++;
+
+    // Progress: 20-70% is frame processing
+    const pct = 20 + Math.round((frameIdx / totalEstimatedFrames) * 50);
+    showProgress(`Processing frame ${frameIdx}/${totalEstimatedFrames}`, pct);
   }
 
   try {
     for (let i = 0; i < mainCanvases.length; i++) {
+      if (abortGeneration) return { success: false, error: 'Aborted' };
+
       const isLast = i === mainCanvases.length - 1;
       const rawDur = i === 0 ? durFirst : isLast ? durLast : durMiddle;
       const holdDur = (doTransitions && actualTDur > 0 && !isLast) ? Math.max(0.01, rawDur - actualTDur) : rawDur;
 
       await writeFrame(mainCanvases[i], holdDur);
-      showProgress('Processing ' + (i + 1) + '/' + mainCanvases.length + '...');
 
       if (doTransitions && actualTDur > 0 && !isLast) {
         const next = mainCanvases[i + 1];
         for (let k = 1; k < transitionSteps; k++) {
+          if (abortGeneration) return { success: false, error: 'Aborted' };
           const alpha = k / transitionSteps;
           const blended = blendFrames(mainCanvases[i], next, alpha, w, h, tType);
           await writeFrame(blended, stepDur);
@@ -508,6 +589,7 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
       const last = mainCanvases[mainCanvases.length - 1];
       const first = mainCanvases[0];
       for (let k = 1; k < transitionSteps; k++) {
+        if (abortGeneration) return { success: false, error: 'Aborted' };
         const alpha = k / transitionSteps;
         const blended = blendFrames(last, first, alpha, w, h, tType);
         await writeFrame(blended, stepDur);
@@ -530,17 +612,17 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
 
   let outFile, mimeType;
   if (format === 'mp4') {
-    showProgress('Encoding MP4...');
+    showProgress('Encoding MP4...', 70);
     args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', crf, '-movflags', '+faststart', 'output.mp4');
     outFile = 'output.mp4';
     mimeType = 'video/mp4';
   } else if (format === 'webm') {
-    showProgress('Encoding WebM...');
+    showProgress('Encoding WebM...', 70);
     args.push('-c:v', 'libvpx', '-crf', crf, '-b:v', '1M', '-deadline', 'realtime', 'output.webm');
     outFile = 'output.webm';
     mimeType = 'video/webm';
   } else if (format === 'mov') {
-    showProgress('Encoding MOV...');
+    showProgress('Encoding MOV...', 70);
     args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast', '-crf', crf, 'output.mov');
     outFile = 'output.mov';
     mimeType = 'video/quicktime';
@@ -578,14 +660,33 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
 }
 
 async function generate() {
+  // Abort any in-progress generation
+  if (isGenerating) {
+    dlog('info', 'Aborting previous generation');
+    abortGeneration = true;
+    // Wait a tick for abort to propagate
+    await new Promise(r => setTimeout(r, 50));
+  }
+
+  abortGeneration = false;
+  isGenerating = true;
+
   const format = outputFormatSelect.value;
   dlog('info', '=== GENERATE STARTED ===', { format });
   clearError();
   resetOutput();
 
+  // Let browser repaint to show progress and hide old output
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
   const validCmps = comparisons.filter(c => c && c.img && c.img.naturalWidth);
   dlog('info', 'Valid images', { count: validCmps.length });
-  if (validCmps.length < 2) { showError('Add at least 2 images'); return; }
+  if (validCmps.length < 2) {
+    showError('Add at least 2 images');
+    isGenerating = false;
+    showIdle('Output will appear here');
+    return;
+  }
 
   const ref = validCmps[0];
   const w = parseInt(document.getElementById('output-width').value) || ref.img.naturalWidth || outputBox.clientWidth;
@@ -624,7 +725,14 @@ async function generate() {
   }
 
   if (!result.success) {
-    showError('Encoding failed: ' + (result.error?.message || result.error));
+    isGenerating = false;
+    if (result.error === 'Aborted') {
+      dlog('info', 'Generation aborted');
+      showIdle('Output will appear here');
+    } else {
+      showError('Encoding failed: ' + (result.error?.message || result.error));
+      showIdle('Output will appear here');
+    }
     return;
   }
 
@@ -633,13 +741,13 @@ async function generate() {
     outputMB: Math.round(lastOutputBlob.size / 1024 / 1024 * 100) / 100
   });
 
+  isGenerating = false;
+  hideProgress();
   overlayCanvas.style.display = 'none';
   clearError();
   saveBtn.style.display = '';
   outputBox.classList.remove('empty');
   outputBox.style.aspectRatio = w + ' / ' + h;
-  const ph = outputBox.querySelector('.placeholder');
-  if (ph) ph.style.display = 'none';
 }
 
 export function setupOutput() {
@@ -779,9 +887,5 @@ export function clearOutput() {
   clearError();
   outputBox.classList.add('empty');
   outputBox.style.aspectRatio = '';
-  const ph = outputBox.querySelector('.placeholder');
-  if (ph) {
-    ph.textContent = 'Your GIF or video will appear here after you click Generate';
-    ph.style.display = '';
-  }
+  showIdle('Output will appear here');
 }
