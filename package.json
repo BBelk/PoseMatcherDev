@@ -1,8 +1,7 @@
 {
   "name": "posematcherdev",
   "version": "1.0.0",
-  "description": "Browser-based pose matching app using OpenCV.js and pose detection models",
-  "main": "index.js",
+  "description": "Browser-based pose matching app using RTMO pose detection",
   "scripts": {
     "start": "npx serve ."
   },
