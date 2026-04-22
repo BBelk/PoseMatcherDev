@@ -7,7 +7,7 @@ export function setSelectedCmpIndex(idx) {
   selectedCmpIndex = idx;
 }
 
-export let currentMode = localStorage.getItem('trackingMode') || 'custom';
+export let currentMode = localStorage.getItem('trackingMode') || 'human';
 
 export function setCurrentMode(mode) {
   currentMode = mode;
