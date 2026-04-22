@@ -40,6 +40,19 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   color: #fcc; font-size: 0.85rem; text-align: center; cursor: pointer;
 }
 
+/* --- Info panel --- */
+
+#info-panel {
+  width: 100%; max-width: 900px; margin-bottom: 0.75rem; padding: 0.6rem 1rem;
+  background: #1a1a2a; border: 1px solid #334; border-radius: 6px;
+  font-size: 0.8rem; color: #aab; text-align: center;
+}
+#info-panel p { margin: 0.2rem 0; }
+#info-panel .privacy-note { color: #8b8; }
+#info-panel .repo-link { margin-top: 0.3rem; }
+#info-panel a { color: #7af; text-decoration: none; }
+#info-panel a:hover { text-decoration: underline; }
+
 /* --- Images section --- */
 
 #images-section {

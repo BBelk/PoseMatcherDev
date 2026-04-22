@@ -10,7 +10,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:mediabunny.dev)",
       "Bash(pkill -f \"serve \\\\.\")",
-      "Bash(taskkill //F //IM node.exe)"
+      "Bash(taskkill //F //IM node.exe)",
+      "WebFetch(domain:sisik.eu)"
     ]
   }
 }
