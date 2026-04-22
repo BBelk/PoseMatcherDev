@@ -304,8 +304,9 @@ export function getSelectedComparison() {
 
 export function setupComparisons() {
   cmpFileInput.addEventListener('change', (e) => {
-    addMultipleComparisons(Array.from(e.target.files));
+    const files = Array.from(e.target.files);
     cmpFileInput.value = '';
+    setTimeout(() => addMultipleComparisons(files), 0);
   });
 
   imagesSection.addEventListener('dragover', (e) => {

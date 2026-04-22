@@ -230,6 +230,13 @@ function setupDebugPanel() {
   const toggle = document.getElementById('debug-toggle');
   const panel = document.getElementById('debug-panel');
   const content = document.getElementById('debug-content');
+
+  // Only show debug toggle if ?debug or /debug in URL
+  const hasDebugParam = location.search.includes('debug') || location.pathname.includes('debug');
+  if (!hasDebugParam) {
+    toggle.style.display = 'none';
+    return;
+  }
   const copyBtn = document.getElementById('debug-copy');
   const clearBtn = document.getElementById('debug-clear');
   const closeBtn = document.getElementById('debug-close');

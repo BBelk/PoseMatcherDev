@@ -57,14 +57,16 @@ All of this is because my wife and I are expecting our first baby. We wanted to 
 The app uses [RTMO](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmo) (Real-Time Multi-Person Pose Estimation), a one-stage pose detector running entirely in-browser via [ONNX Runtime Web](https://onnxruntime.ai/). It detects 17 COCO keypoints per person (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles).
 
 ### Video/GIF Encoding
-Output encoding uses [FFmpeg WASM](https://ffmpegwasm.netlify.app/) - a WebAssembly port of FFmpeg that runs client-side. No server needed.
+- **Video (MP4/WebM/MOV)**: [mediabunny](https://github.com/Vanilagy/mediabunny) - a lightweight WebCodecs-based encoder with streaming support. Hardware-accelerated, no WASM overhead.
+- **GIF**: [gifenc](https://github.com/mattdesl/gifenc) - streaming GIF encoder with global palette optimization and frame differencing for smaller files.
 
 ### Tech Stack
 - **Runtime**: 100% browser-based, deployable as a static site (GitHub Pages)
 - **Framework**: Vanilla JavaScript, no build tools or bundlers
 - **Persistence**: IndexedDB for storing uploaded images across sessions
-- **Pose Model**: RTMO-t via ONNX Runtime Web (WASM backend)
-- **Encoding**: FFmpeg WASM for GIF/MP4 generation
+- **Pose Model**: RTMO-s via ONNX Runtime Web (WASM backend)
+- **Video Encoding**: mediabunny (WebCodecs + muxers)
+- **GIF Encoding**: gifenc with lossy compression options
 
 ## Keyboard Shortcuts
 
@@ -76,8 +78,9 @@ Output encoding uses [FFmpeg WASM](https://ffmpegwasm.netlify.app/) - a WebAssem
 ## Limitations
 - Pose detection works best with clearly visible, unobstructed people
 - Very small figures in images may not be detected reliably
-- First-time load downloads the pose model (~10MB) and FFmpeg WASM (~30MB)
-- Mobile browsers may struggle with memory on large image sets
+- First-time load downloads the pose model (~10MB)
+- WebCodecs required for video encoding (Safari 16.4+, Chrome 94+, Edge 94+)
+- GIFs of photographic content will always be larger than video equivalents
 
 ## Potential Future Development
 - Batch export options
@@ -88,4 +91,5 @@ Output encoding uses [FFmpeg WASM](https://ffmpegwasm.netlify.app/) - a WebAssem
 ## Thanks To
 - [RTMO / MMPose](https://github.com/open-mmlab/mmpose) for the pose estimation model
 - [ONNX Runtime](https://onnxruntime.ai/) for browser-based ML inference
-- [FFmpeg WASM](https://ffmpegwasm.netlify.app/) for client-side video encoding
+- [mediabunny](https://github.com/Vanilagy/mediabunny) for WebCodecs-based video encoding
+- [gifenc](https://github.com/mattdesl/gifenc) for streaming GIF encoding
