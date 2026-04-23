@@ -11,7 +11,8 @@
       "WebFetch(domain:mediabunny.dev)",
       "Bash(pkill -f \"serve \\\\.\")",
       "Bash(taskkill //F //IM node.exe)",
-      "WebFetch(domain:sisik.eu)"
+      "WebFetch(domain:sisik.eu)",
+      "WebFetch(domain:www.npmjs.com)"
     ]
   }
 }
