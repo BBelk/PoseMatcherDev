@@ -1,4 +1,4 @@
-# PoseMatcher
+# Time Lapse Generator with Pose Matcher
 
 [Link to tool](https://bbelk.github.io/PoseMatcherDev/)
 
@@ -10,12 +10,12 @@
 5. [Limitations](#limitations)
 6. [Potential Future Development](#potential-future-development)
 
-![Alt text](./images/readme-images/HandiRokuRemoteGif2.gif "PoseMatcher Demo")
+![Alt text](./images/readme-images/HandiRokuRemoteGif2.gif "Time Lapse Generator Demo")
 
 ## Description
-The Image to Time Lapse Tool is for turning a series of images into a timelapse (gif or video). I took a look at current available options, they required downloads or accounts or all sorts of hoops to jump through. I just wanted something super simple. It also includes a pose-estimation model, which allows you to automatically align photos based off a person's random body parts (nose, left knee, right eye, whatever). The tool also allows for custom keypoints for alignment.
+Turn a series of images into a time lapse (GIF or video) with automatic pose-based alignment. No downloads, no accounts, no hoops to jump through - just a simple browser-based tool. It includes a pose-estimation model that automatically aligns photos based on a person's body parts (nose, left knee, right eye, whatever). The tool also supports custom keypoints for non-human subjects.
 
-All of this is because my wife and I are expecting our first baby. We wanted to take photos of her baby bump along the way and create a time lapse at the end. Pretty cute right? After the first dozen photos, all slightly off base, the thought of manually aligning hundreds of photos made me physically ill. So I whiped up this little tool, and maybe it can help you as well. 
+All of this is because my wife and I are expecting our first baby. We wanted to take photos of her baby bump along the way and create a time lapse at the end. Pretty cute right? After the first dozen photos, all slightly off base, the thought of manually aligning hundreds of photos made me physically ill. So I whipped up this little tool, and maybe it can help you as well. 
 
 ## How To Use
 
@@ -49,7 +49,7 @@ All of this is because my wife and I are expecting our first baby. We wanted to 
 - Drag comparison cards to reorder them
 - Click "Clear All" to start fresh
 
-![Alt text](./images/readme-images/handiRokuRemote-GUI.jpg "PoseMatcher Interface")
+![Alt text](./images/readme-images/handiRokuRemote-GUI.jpg "Time Lapse Generator Interface")
 
 ## How It Works
 
