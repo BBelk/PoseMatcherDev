@@ -16,7 +16,6 @@
 <body>
   <div id="top-bar">
     <h1>PoseMatcher</h1>
-    <button id="clear-all-btn" style="display:none">Clear All</button>
   </div>
 
   <div id="error-banner" style="display:none"></div>
@@ -28,14 +27,14 @@
   </div>
 
   <section id="images-section">
-    <h2>1. Images</h2>
+    <h2>1. Images <button id="clear-all-btn" style="display:none">Clear All</button></h2>
     <p class="section-hint">First image = reference. Others align to it.</p>
     <div id="compare-grid"></div>
     <div id="compare-upload">
       <div class="upload-prompt-cmp">
-        <p class="prompt-main">Add images</p>
-        <p class="prompt-sub">Drop files or click to upload</p>
         <label class="upload-label upload-label-lg" for="cmp-file">+ Add Images</label>
+        <p class="prompt-sub">Drop files or click to upload</p>
+        <p class="upload-warning">Adding many images at once may cause a delay while processing</p>
       </div>
       <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
     </div>

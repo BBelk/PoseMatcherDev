@@ -27,8 +27,8 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 #top-bar { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; width: 100%; max-width: 900px; }
 
 #clear-all-btn {
-  padding: 0.25rem 0.6rem; border: 1px solid #733; border-radius: 5px;
-  font-size: 0.75rem; color: #f99; background: #252525; cursor: pointer;
+  margin-left: 0.5rem; padding: 0.2rem 0.5rem; border: 1px solid #733; border-radius: 4px;
+  font-size: 0.65rem; color: #f99; background: #252525; cursor: pointer; vertical-align: middle;
 }
 #clear-all-btn:hover { background: #3a1a1a; border-color: #f55; }
 
@@ -586,6 +586,13 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   max-width: 200px;
 }
 
+.upload-warning {
+  font-size: 0.7rem;
+  color: #a90;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+
 /* --- Restore defaults button --- */
 
 .restore-btn {
@@ -634,9 +641,10 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
 
   #top-bar { order: 0; }
   #error-banner { order: 1; }
+  #info-panel { order: 2; text-align: center; }
 
   #images-section {
-    order: 2;
+    order: 3;
     width: 100%;
   }
 
@@ -647,19 +655,19 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: #fff; t
   }
 
   #action-bar {
-    order: 3;
+    order: 4;
   }
 
   #generate-section-mobile {
     display: block;
-    order: 4;
+    order: 5;
   }
   #generate-btn-desktop {
     display: none;
   }
 
   #output-section {
-    order: 5;
+    order: 6;
     width: 100%;
     max-width: 100%;
     margin-bottom: 0.75rem;
