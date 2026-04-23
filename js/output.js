@@ -929,9 +929,10 @@ export function setupOutput() {
     if (!lastOutputBlob) return;
     const extMap = { gif: 'gif', mp4: 'mp4', webm: 'webm', mov: 'mov' };
     const ext = extMap[lastOutputFormat] || lastOutputFormat;
+    const suffix = Math.random().toString(36).slice(2, 6);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(lastOutputBlob);
-    a.download = 'posematcher.' + ext;
+    a.download = `posematcher_${suffix}.${ext}`;
     a.click();
   });
 }

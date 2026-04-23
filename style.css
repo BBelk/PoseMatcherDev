@@ -438,26 +438,33 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 
 .setting-compact {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 0.5rem; padding: 0.2rem 0; font-size: 0.78rem; color: var(--text-primary);
+  gap: 0.5rem; padding: 0.35rem 0.5rem; font-size: 0.78rem; color: var(--text-primary);
+  border-radius: 4px; margin: 0 -0.5rem;
+}
+.setting-compact:nth-child(even) {
+  background: var(--bg-panel);
 }
 .setting-compact > label { white-space: nowrap; }
 .label-hint { font-size: 0.7rem; color: var(--text-muted); font-weight: normal; }
 
 .setting-compact input[type="number"] {
-  width: 50px; padding: 2px 5px; border: 1px solid var(--border-color); border-radius: 4px;
-  background: var(--bg-input); color: var(--text-primary); font-size: 0.78rem; text-align: right;
+  width: 55px; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 4px;
+  background: var(--bg-input); color: var(--text-primary); font-size: 0.8rem; text-align: right;
 }
 .setting-compact input[type="number"]:focus {
   border-color: var(--accent); outline: none;
 }
 .setting-compact select {
-  padding: 2px 5px; border: 1px solid var(--border-color); border-radius: 4px;
-  background: var(--bg-input); color: var(--text-primary); font-size: 0.78rem;
+  padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 4px;
+  background: var(--bg-input); color: var(--text-primary); font-size: 0.8rem;
 }
 .setting-compact select:focus {
   border-color: var(--accent); outline: none;
 }
-.setting-compact input[type="checkbox"] { accent-color: var(--accent); margin: 0; }
+.setting-compact input[type="checkbox"] {
+  accent-color: var(--accent); margin: 0;
+  width: 18px; height: 18px; cursor: pointer;
+}
 .setting-compact input[type="range"] { width: 80px; accent-color: var(--accent); }
 
 /* Inline sub-controls (checkbox + dropdown on same line, or number + unit) */
@@ -773,6 +780,78 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
     width: 100%;
     max-width: 100%;
     margin-bottom: 0.75rem;
+  }
+
+  /* Mobile-friendly inputs */
+  .setting-compact {
+    padding: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .setting-compact > label {
+    flex: 1 1 100%;
+    margin-bottom: 0.25rem;
+  }
+  .setting-compact input[type="number"] {
+    width: 70px;
+    padding: 8px 10px;
+    font-size: 1rem;
+  }
+  .setting-compact select {
+    padding: 8px 10px;
+    font-size: 1rem;
+  }
+  .setting-compact input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+  }
+  .setting-compact input[type="range"] {
+    flex: 1;
+    height: 24px;
+  }
+  .inline-sub {
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  /* Custom stepper buttons for mobile */
+  .stepper-wrap {
+    display: flex;
+    align-items: stretch;
+  }
+  .stepper-wrap input[type="number"] {
+    border-radius: 0;
+    -moz-appearance: textfield;
+    text-align: center;
+  }
+  .stepper-wrap input[type="number"]::-webkit-inner-spin-button,
+  .stepper-wrap input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .stepper-btn {
+    width: 36px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-button);
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .stepper-btn:first-child {
+    border-radius: 4px 0 0 4px;
+    border-right: none;
+  }
+  .stepper-btn:last-child {
+    border-radius: 0 4px 4px 0;
+    border-left: none;
+  }
+  .stepper-btn:active {
+    background: var(--bg-button-hover);
   }
 }
 

@@ -35,25 +35,37 @@ function initSettings() {
   if (_savedScoreThresh) {
     scoreThreshSlider.value = _savedScoreThresh;
     POSE_CONFIG.scoreThreshold = parseFloat(_savedScoreThresh);
-    scoreThreshVal.textContent = _savedScoreThresh;
+    scoreThreshVal.value = _savedScoreThresh;
   }
   const _savedKpThresh = localStorage.getItem('kpThresh');
   if (_savedKpThresh) {
     kpThreshSlider.value = _savedKpThresh;
     POSE_CONFIG.confidenceThreshold = parseFloat(_savedKpThresh);
-    kpThreshVal.textContent = _savedKpThresh;
+    kpThreshVal.value = _savedKpThresh;
   }
 
   scoreThreshSlider.addEventListener('input', () => {
     POSE_CONFIG.scoreThreshold = parseFloat(scoreThreshSlider.value);
-    scoreThreshVal.textContent = scoreThreshSlider.value;
+    scoreThreshVal.value = scoreThreshSlider.value;
     localStorage.setItem('scoreThresh', scoreThreshSlider.value);
+  });
+  scoreThreshVal.addEventListener('input', () => {
+    const val = Math.max(0.01, Math.min(1, parseFloat(scoreThreshVal.value) || 0.3));
+    scoreThreshSlider.value = val;
+    POSE_CONFIG.scoreThreshold = val;
+    localStorage.setItem('scoreThresh', val);
   });
 
   kpThreshSlider.addEventListener('input', () => {
     POSE_CONFIG.confidenceThreshold = parseFloat(kpThreshSlider.value);
-    kpThreshVal.textContent = kpThreshSlider.value;
+    kpThreshVal.value = kpThreshSlider.value;
     localStorage.setItem('kpThresh', kpThreshSlider.value);
+  });
+  kpThreshVal.addEventListener('input', () => {
+    const val = Math.max(0.01, Math.min(1, parseFloat(kpThreshVal.value) || 0.3));
+    kpThreshSlider.value = val;
+    POSE_CONFIG.confidenceThreshold = val;
+    localStorage.setItem('kpThresh', val);
   });
 
   restoreDefaultsBtn.addEventListener('click', (e) => {
@@ -79,10 +91,10 @@ function initSettings() {
     document.getElementById('transition-type').value = 'fade';
     document.getElementById('transition-duration').value = '0.25';
     scoreThreshSlider.value = '0.3';
-    scoreThreshVal.textContent = '0.3';
+    scoreThreshVal.value = '0.3';
     POSE_CONFIG.scoreThreshold = 0.3;
     kpThreshSlider.value = '0.3';
-    kpThreshVal.textContent = '0.3';
+    kpThreshVal.value = '0.3';
     POSE_CONFIG.confidenceThreshold = 0.3;
     // Clear all localStorage settings
     localStorage.removeItem('scoreThresh');
@@ -351,6 +363,51 @@ function setupThemeToggle() {
   });
 }
 
+function setupMobileSteppers() {
+  if (window.innerWidth > 640) return;
+
+  const inputs = document.querySelectorAll('.setting-compact input[type="number"], .inline-sub input[type="number"]');
+  inputs.forEach(input => {
+    if (input.closest('.stepper-wrap')) return;
+
+    const wrap = document.createElement('span');
+    wrap.className = 'stepper-wrap';
+
+    const minusBtn = document.createElement('button');
+    minusBtn.type = 'button';
+    minusBtn.className = 'stepper-btn';
+    minusBtn.textContent = '−';
+
+    const plusBtn = document.createElement('button');
+    plusBtn.type = 'button';
+    plusBtn.className = 'stepper-btn';
+    plusBtn.textContent = '+';
+
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(minusBtn);
+    wrap.appendChild(input);
+    wrap.appendChild(plusBtn);
+
+    const step = parseFloat(input.step) || 1;
+    const min = parseFloat(input.min);
+    const max = parseFloat(input.max);
+
+    minusBtn.addEventListener('click', () => {
+      let val = parseFloat(input.value) || 0;
+      val = Math.max(isNaN(min) ? -Infinity : min, val - step);
+      input.value = parseFloat(val.toFixed(10));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    plusBtn.addEventListener('click', () => {
+      let val = parseFloat(input.value) || 0;
+      val = Math.min(isNaN(max) ? Infinity : max, val + step);
+      input.value = parseFloat(val.toFixed(10));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+}
+
 function init() {
   setCmpClearAllCb(updateClearAllVisibility);
 
@@ -361,6 +418,7 @@ function init() {
   setupKeyboardShortcuts();
   setupDebugPanel();
   setupThemeToggle();
+  setupMobileSteppers();
 
   restore();
 
