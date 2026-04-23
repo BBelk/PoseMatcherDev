@@ -2,14 +2,15 @@ import { currentMode } from './state.js';
 
 export function drawNoHumansBanner(ctx) {
   const text = 'No Human Detected';
-  const bh = 20;
+  const bh = 15;
+  const y = ctx.canvas.height - bh;
   ctx.fillStyle = 'rgba(0,0,0,0.85)';
-  ctx.fillRect(0, 0, ctx.canvas.width, bh);
-  ctx.font = 'bold 12px system-ui, sans-serif';
+  ctx.fillRect(0, y, ctx.canvas.width, bh);
+  ctx.font = 'bold 9px system-ui, sans-serif';
   ctx.fillStyle = '#ffd84a';
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'center';
-  ctx.fillText(text, ctx.canvas.width / 2, bh / 2);
+  ctx.fillText(text, ctx.canvas.width / 2, y + bh / 2);
 }
 
 export function drawCustomPoint(ctx, pt, rect) {

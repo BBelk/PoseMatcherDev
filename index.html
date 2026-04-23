@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Time Lapse Generator with Pose Matcher</title>
   <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      const saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    })();
+  </script>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-K49H7QCTCR"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -16,6 +22,7 @@
 <body>
   <div id="top-bar">
     <h1>Time Lapse Generator with Pose Matcher</h1>
+    <button id="theme-toggle" aria-label="Toggle light/dark mode" title="Toggle light/dark mode"></button>
   </div>
 
   <div id="error-banner" style="display:none"></div>

@@ -297,11 +297,6 @@ function reorderComparison(srcEntry, targetEntry, insertAfter) {
   saveComparisonOrder();
 }
 
-export function getSelectedComparison() {
-  if (selectedCmpIndex < 0) return null;
-  return comparisons[selectedCmpIndex] || null;
-}
-
 export function setupComparisons() {
   cmpFileInput.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);

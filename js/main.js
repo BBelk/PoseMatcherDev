@@ -330,6 +330,27 @@ function setupDebugPanel() {
   toggle.classList.toggle('has-crash', hasCrash);
 }
 
+function setupThemeToggle() {
+  const toggle = document.getElementById('theme-toggle');
+  toggle.addEventListener('click', () => {
+    const root = document.documentElement;
+    const current = root.getAttribute('data-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    let newTheme;
+    if (current === 'light') {
+      newTheme = 'dark';
+    } else if (current === 'dark') {
+      newTheme = 'light';
+    } else {
+      newTheme = prefersDark ? 'light' : 'dark';
+    }
+
+    root.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  });
+}
+
 function init() {
   setCmpClearAllCb(updateClearAllVisibility);
 
@@ -339,6 +360,7 @@ function init() {
   setupClearAll();
   setupKeyboardShortcuts();
   setupDebugPanel();
+  setupThemeToggle();
 
   restore();
 
