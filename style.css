@@ -91,6 +91,9 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 #theme-toggle {
   margin-left: auto;
   width: 36px; height: 36px;
+  min-width: 36px; min-height: 36px;
+  aspect-ratio: 1;
+  flex-shrink: 0;
   border: 1px solid var(--border-color);
   border-radius: 50%;
   background: var(--bg-button);
@@ -441,7 +444,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
   gap: 0.5rem; padding: 0.35rem 0.5rem; font-size: 0.78rem; color: var(--text-primary);
   border-radius: 4px; margin: 0 -0.5rem;
 }
-.setting-compact:nth-child(even) {
+.setting-compact.zebra-alt {
   background: var(--bg-panel);
 }
 .setting-compact > label { white-space: nowrap; }
@@ -484,11 +487,14 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 
 /* Row of small toggles side by side */
 
-.setting-row-pair {
-  display: flex; gap: 1rem; padding: 0.2rem 0;
+.setting-row-pair, .setting-row-triple {
+  display: flex; gap: 0.75rem; padding: 0.35rem 0.5rem; margin: 0 -0.5rem;
+  border-radius: 4px;
 }
-.setting-row-pair .setting-compact {
-  flex: none; gap: 0.3rem; padding: 0;
+.setting-row-pair .setting-compact,
+.setting-row-triple .setting-compact {
+  flex: 1; gap: 0.4rem; padding: 0; margin: 0;
+  justify-content: center;
 }
 
 /* Dim inputs */
@@ -811,6 +817,22 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
   .inline-sub {
     flex: 1;
     justify-content: flex-end;
+  }
+
+  /* Toggle rows stay horizontal on mobile */
+  .setting-row-pair, .setting-row-triple {
+    flex-wrap: nowrap;
+    padding: 0.5rem;
+  }
+  .setting-row-pair .setting-compact,
+  .setting-row-triple .setting-compact {
+    flex-wrap: nowrap;
+    padding: 0;
+  }
+  .setting-row-pair .setting-compact > label,
+  .setting-row-triple .setting-compact > label {
+    flex: none;
+    margin-bottom: 0;
   }
 
   /* Custom stepper buttons for mobile */

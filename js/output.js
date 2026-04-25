@@ -819,8 +819,10 @@ export function setupOutput() {
     localStorage.setItem('mp4Quality', mp4QualitySlider.value);
   });
   mp4QualityVal.addEventListener('input', () => {
-    mp4QualitySlider.value = mp4QualityVal.value;
-    localStorage.setItem('mp4Quality', mp4QualityVal.value);
+    const val = Math.max(18, Math.min(35, parseInt(mp4QualityVal.value) || 23));
+    mp4QualityVal.value = val;
+    mp4QualitySlider.value = val;
+    localStorage.setItem('mp4Quality', val);
   });
 
   // GIF options
@@ -834,8 +836,10 @@ export function setupOutput() {
     localStorage.setItem('gifLossy', gifLossySlider.value);
   });
   gifLossyVal.addEventListener('input', () => {
-    gifLossySlider.value = gifLossyVal.value;
-    localStorage.setItem('gifLossy', gifLossyVal.value);
+    const val = Math.max(0, Math.min(30, parseInt(gifLossyVal.value) || 15));
+    gifLossyVal.value = val;
+    gifLossySlider.value = val;
+    localStorage.setItem('gifLossy', val);
   });
 
   if (localStorage.getItem('gifDiff') !== null) {

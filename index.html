@@ -113,7 +113,7 @@
         </div>
 
         <div class="opt-group">
-          <div class="opt-group-title">Output</div>
+          <div class="opt-group-title">Format</div>
           <div class="setting-compact">
             <label>Size</label>
             <span class="dim-inputs">
@@ -139,18 +139,14 @@
           </div>
           <div id="gif-options-row">
             <div class="setting-compact">
-              <label for="gif-lossy">Lossy <span class="label-hint">(0=lossless, 30=max)</span></label>
+              <label for="gif-lossy">Compression <span class="label-hint">(0=best, 30=smallest)</span></label>
               <span class="inline-sub">
                 <input type="range" id="gif-lossy" min="0" max="30" step="1" value="15">
                 <input type="number" id="gif-lossy-val" min="0" max="30" step="1" value="15">
               </span>
             </div>
-            <div class="setting-compact">
-              <label for="gif-diff-toggle">Frame diff</label>
-              <input type="checkbox" id="gif-diff-toggle" checked>
-            </div>
           </div>
-          <div class="setting-row-pair">
+          <div class="setting-row-triple">
             <div class="setting-compact">
               <label for="loop-toggle">Loop</label>
               <input type="checkbox" id="loop-toggle" checked>
@@ -158,6 +154,10 @@
             <div class="setting-compact">
               <label for="frame-counter-toggle">Counter</label>
               <input type="checkbox" id="frame-counter-toggle">
+            </div>
+            <div class="setting-compact">
+              <label for="gif-diff-toggle">Optimize</label>
+              <input type="checkbox" id="gif-diff-toggle" checked>
             </div>
           </div>
         </div>

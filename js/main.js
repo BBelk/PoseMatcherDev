@@ -123,6 +123,7 @@ function initSettings() {
     const isHuman = modeHumanRadio.checked;
     humanPoseOptions.style.display = isHuman ? '' : 'none';
     detectionGroup.style.display = isHuman ? '' : 'none';
+    setTimeout(applyZebraStriping, 0);
   }
 
   function updateRedetectBtn() {
@@ -408,6 +409,22 @@ function setupMobileSteppers() {
   });
 }
 
+function applyZebraStriping() {
+  document.querySelectorAll('.opt-group').forEach(group => {
+    const rows = Array.from(group.querySelectorAll('.setting-compact, .setting-row-pair, .setting-row-triple'))
+      .filter(el => !el.closest('.setting-row-pair, .setting-row-triple') || el.classList.contains('setting-row-pair') || el.classList.contains('setting-row-triple'));
+    let visibleIndex = 0;
+    rows.forEach(row => {
+      row.classList.remove('zebra-alt');
+      const isVisible = row.offsetParent !== null && !row.closest('[style*="display: none"], [style*="display:none"]');
+      if (isVisible) {
+        row.classList.toggle('zebra-alt', visibleIndex % 2 === 1);
+        visibleIndex++;
+      }
+    });
+  });
+}
+
 function init() {
   setCmpClearAllCb(updateClearAllVisibility);
 
@@ -419,6 +436,7 @@ function init() {
   setupDebugPanel();
   setupThemeToggle();
   setupMobileSteppers();
+  applyZebraStriping();
 
   restore();
 
