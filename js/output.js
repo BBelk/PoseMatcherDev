@@ -142,12 +142,20 @@ const progressContainer = document.getElementById('progress-container');
 const progressText = document.getElementById('progress-text');
 const progressBar = document.getElementById('progress-bar');
 
+function computeTransitionParams(tDur, durFirst, durMiddle, durLast, frameCount, loop) {
+  const minFrameDur = Math.min(durFirst, durMiddle, durLast);
+  const actualTDur = Math.min(tDur, minFrameDur);
+  const transitionFps = 10;
+  const transitionSteps = Math.max(2, Math.round(actualTDur * transitionFps));
+  const stepDur = actualTDur > 0 ? actualTDur / transitionSteps : 0;
+  const transFramesPerGap = transitionSteps - 1;
+  const loopTransFrames = (loop && actualTDur > 0) ? transitionSteps - 1 : 0;
+  const totalFrames = frameCount + (frameCount - 1) * transFramesPerGap + loopTransFrames;
+  return { actualTDur, transitionSteps, stepDur, totalFrames };
+}
+
 function showProgress(msg, percent = null) {
-  console.log('showProgress:', msg, percent, progressContainer, progressBar);
-  if (!progressContainer || !progressBar) {
-    console.error('Progress elements not found!');
-    return;
-  }
+  if (!progressContainer || !progressBar) return;
   progressContainer.classList.remove('idle');
   progressContainer.style.display = 'flex';
   progressText.textContent = msg;
@@ -184,38 +192,23 @@ function clearError() {
 }
 
 function resetOutput() {
-  console.log('resetOutput called');
-
-  // Revoke old blob URLs to free memory
   try {
-    if (outputGif.src && outputGif.src.startsWith('blob:')) {
-      URL.revokeObjectURL(outputGif.src);
-    }
-    if (outputVideo.src && outputVideo.src.startsWith('blob:')) {
-      URL.revokeObjectURL(outputVideo.src);
-    }
-  } catch (e) {
-    console.log('Error revoking URLs:', e);
-  }
+    if (outputGif.src && outputGif.src.startsWith('blob:')) URL.revokeObjectURL(outputGif.src);
+    if (outputVideo.src && outputVideo.src.startsWith('blob:')) URL.revokeObjectURL(outputVideo.src);
+  } catch (e) {}
 
-  // Clear and hide old output
-  console.log('Hiding output elements, current gif display:', outputGif.style.display);
   outputVideo.pause();
   outputGif.removeAttribute('src');
   outputVideo.removeAttribute('src');
   outputGif.style.display = 'none';
   outputVideo.style.display = 'none';
   overlayCanvas.style.display = 'none';
-  console.log('After hiding, gif display:', outputGif.style.display, 'video display:', outputVideo.style.display);
 
-  // Reset box state
-  console.log('Adding empty class to outputBox:', outputBox);
   outputBox.classList.add('empty');
   outputBox.style.aspectRatio = '';
   saveBtn.style.display = 'none';
   lastOutputBlob = null;
 
-  // Show progress with indeterminate spinner
   showProgress('Preparing...');
 }
 
@@ -352,7 +345,7 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
   const sampleCanvas = document.createElement('canvas');
   sampleCanvas.width = sampleSize;
   sampleCanvas.height = sampleSize;
-  const sampleCtx = sampleCanvas.getContext('2d');
+  const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
 
   const samplesPerImage = sampleSize * sampleSize * 4;
   const allSamples = new Uint8Array(validCmps.length * samplesPerImage);
@@ -374,26 +367,18 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
 
   const gif = GIFEncoder();
   let frameCount = 0;
-  let prevFrameData = null; // Store previous frame's RGBA data for diffing
+  let prevFrameData = null;
 
-  const minFrameDur = Math.min(durFirst, durMiddle, durLast);
-  let actualTDur = tDur;
-  if (actualTDur > minFrameDur) actualTDur = minFrameDur;
-
-  const transitionFps = 10;
-  const transitionSteps = Math.max(2, Math.round(actualTDur * transitionFps));
-  const stepDurMs = actualTDur > 0 ? Math.round((actualTDur / transitionSteps) * 1000) : 0;
   const doTransitions = useTransitions && validCmps.length > 1;
-
-  const transFramesPerGap = doTransitions ? (transitionSteps - 1) : 0;
-  const loopTransFrames = (loopGif && doTransitions && actualTDur > 0) ? (transitionSteps - 1) : 0;
-  const totalEstimatedFrames = validCmps.length + (validCmps.length - 1) * transFramesPerGap + loopTransFrames;
+  const tParams = doTransitions ? computeTransitionParams(tDur, durFirst, durMiddle, durLast, validCmps.length, loopGif) : null;
+  const { actualTDur = 0, transitionSteps = 0, stepDur = 0, totalFrames: totalEstimatedFrames = validCmps.length } = tParams || {};
+  const stepDurMs = Math.round(stepDur * 1000);
 
   const LOSSY_ROUND = parseInt(gifLossySlider.value) || 0;
   const USE_FRAME_DIFF = gifDiffToggle.checked;
 
   function encodeFrame(canvas, delayMs) {
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const imageData = ctx.getImageData(0, 0, w, h);
     const { data } = imageData;
     const isFirstFrame = frameCount === 0;
@@ -534,29 +519,17 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
 
   const ref = validCmps[0];
 
-  const minFrameDur = Math.min(durFirst, durMiddle, durLast);
-  let actualTDur = tDur;
-  if (actualTDur > minFrameDur) actualTDur = minFrameDur;
-
-  const transitionFps = 10;
-  const transitionSteps = Math.max(2, Math.round(actualTDur * transitionFps));
-  const stepDur = actualTDur > 0 ? actualTDur / transitionSteps : 0;
   const doTransitions = useTransitions && validCmps.length > 1;
+  const tParams = doTransitions ? computeTransitionParams(tDur, durFirst, durMiddle, durLast, validCmps.length, loopGif) : null;
+  const { actualTDur = 0, transitionSteps = 0, stepDur = 0, totalFrames: totalEstimatedFrames = validCmps.length } = tParams || {};
 
-  const transFramesPerGap = doTransitions ? (transitionSteps - 1) : 0;
-  const loopTransFrames = (loopGif && doTransitions && actualTDur > 0) ? (transitionSteps - 1) : 0;
-  const totalEstimatedFrames = validCmps.length + (validCmps.length - 1) * transFramesPerGap + loopTransFrames;
-
-  // Create reusable canvas for rendering frames
   const frameCanvas = document.createElement('canvas');
   frameCanvas.width = w;
   frameCanvas.height = h;
 
-  // Map CRF to bitrate (rough approximation: lower CRF = higher quality)
   const crf = parseInt(mp4QualitySlider.value) || 23;
-  const baseBitrate = w * h * 0.1;
-  const qualityMultiplier = Math.max(0.5, (51 - crf) / 28);
-  const bitrate = Math.round(baseBitrate * qualityMultiplier);
+  const qualityMultiplier = (51 - crf) / 33;
+  const bitrate = Math.round(w * h * 4 * qualityMultiplier);
 
   let outputFormat, mimeType;
   if (format === 'webm') {
@@ -580,7 +553,6 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
   let timestamp = 0;
 
   async function addFrame(canvas, duration) {
-    // Copy to our reusable canvas
     const ctx = frameCanvas.getContext('2d');
     ctx.drawImage(canvas, 0, 0);
 
@@ -710,8 +682,28 @@ async function generate() {
   }
 
   const ref = validCmps[0];
-  const w = parseInt(document.getElementById('output-width').value) || ref.img.naturalWidth || outputBox.clientWidth;
-  const h = parseInt(document.getElementById('output-height').value) || ref.img.naturalHeight || outputBox.clientHeight;
+  const widthInput = document.getElementById('output-width');
+  const heightInput = document.getElementById('output-height');
+  let w = parseInt(widthInput.value);
+  let h = parseInt(heightInput.value);
+
+  if (!w && !h) {
+    const maxSize = format === 'gif' ? 640 : 1080;
+    const natW = ref.img.naturalWidth;
+    const natH = ref.img.naturalHeight;
+    if (natW >= natH) {
+      w = Math.min(natW, maxSize);
+      h = Math.round(w * (natH / natW));
+    } else {
+      h = Math.min(natH, maxSize);
+      w = Math.round(h * (natW / natH));
+    }
+    widthInput.placeholder = w;
+    heightInput.placeholder = h;
+  } else {
+    w = w || ref.img.naturalWidth;
+    h = h || ref.img.naturalHeight;
+  }
   const loopGif = loopToggle.checked;
   const useTransitions = transitionToggle.checked;
   const tType = transitionTypeSelect.value;
@@ -787,7 +779,6 @@ export function setupOutput() {
   const _savedOutputFormat = localStorage.getItem('outputFormat');
   if (_savedOutputFormat) outputFormatSelect.value = _savedOutputFormat;
 
-  // Load saved output dimensions
   const _savedWidth = localStorage.getItem('outputWidth');
   const _savedHeight = localStorage.getItem('outputHeight');
   if (_savedWidth) outputWidthInput.value = _savedWidth;
@@ -795,12 +786,18 @@ export function setupOutput() {
   outputWidthInput.addEventListener('change', () => localStorage.setItem('outputWidth', outputWidthInput.value));
   outputHeightInput.addEventListener('change', () => localStorage.setItem('outputHeight', outputHeightInput.value));
 
+  const gifOptimizeRow = document.getElementById('gif-optimize-row');
+  const sizeHint = document.getElementById('size-hint');
   function updateFormatOptionsVisibility() {
     const format = outputFormatSelect.value;
     const isVideo = ['mp4', 'webm', 'mov'].includes(format);
     const isGif = format === 'gif';
     mp4QualityRow.style.display = isVideo ? '' : 'none';
     gifOptionsRow.style.display = isGif ? '' : 'none';
+    gifOptimizeRow.style.display = isGif ? '' : 'none';
+    sizeHint.textContent = isGif
+      ? 'Leave empty for recommended size (max 640px)'
+      : 'Leave empty for recommended size (max 1080px)';
   }
   updateFormatOptionsVisibility();
 
@@ -825,7 +822,6 @@ export function setupOutput() {
     localStorage.setItem('mp4Quality', val);
   });
 
-  // GIF options
   const _savedGifLossy = localStorage.getItem('gifLossy');
   if (_savedGifLossy) {
     gifLossySlider.value = _savedGifLossy;

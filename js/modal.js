@@ -4,6 +4,17 @@ const personModal = document.getElementById('person-modal');
 const modalCanvas = document.getElementById('modal-canvas');
 const modalCloseBtn = document.getElementById('modal-close');
 
+function sizeModalCanvas(imgEl) {
+  const maxW = window.innerWidth * 0.85;
+  const maxH = window.innerHeight * 0.7;
+  const scale = Math.min(maxW / imgEl.naturalWidth, maxH / imgEl.naturalHeight);
+  const cw = Math.round(imgEl.naturalWidth * scale);
+  const ch = Math.round(imgEl.naturalHeight * scale);
+  modalCanvas.width = cw;
+  modalCanvas.height = ch;
+  return { cw, ch };
+}
+
 let modalCallback = null;
 let modalCmpEntry = null;
 
@@ -34,14 +45,7 @@ export function openPersonModal(imgEl, poses, currentSelected, onSelect) {
   personModal.style.display = '';
   modalCallback = onSelect;
 
-  const maxW = window.innerWidth * 0.85;
-  const maxH = window.innerHeight * 0.7;
-  const scale = Math.min(maxW / imgEl.naturalWidth, maxH / imgEl.naturalHeight);
-  const cw = Math.round(imgEl.naturalWidth * scale);
-  const ch = Math.round(imgEl.naturalHeight * scale);
-  modalCanvas.width = cw;
-  modalCanvas.height = ch;
-
+  const { cw, ch } = sizeModalCanvas(imgEl);
   const ctx = modalCanvas.getContext('2d');
   const rect = { offsetX: 0, offsetY: 0, width: cw, height: ch };
 
@@ -79,14 +83,7 @@ export function openCustomPointModal(imgEl, currentPoint, onSelect) {
   personModal.querySelector('.modal-hint').textContent = 'Click anywhere to set the point';
   personModal.style.display = '';
 
-  const maxW = window.innerWidth * 0.85;
-  const maxH = window.innerHeight * 0.7;
-  const scale = Math.min(maxW / imgEl.naturalWidth, maxH / imgEl.naturalHeight);
-  const cw = Math.round(imgEl.naturalWidth * scale);
-  const ch = Math.round(imgEl.naturalHeight * scale);
-  modalCanvas.width = cw;
-  modalCanvas.height = ch;
-
+  const { cw, ch } = sizeModalCanvas(imgEl);
   const ctx = modalCanvas.getContext('2d');
   const rect = { offsetX: 0, offsetY: 0, width: cw, height: ch };
   let point = { x: currentPoint.x, y: currentPoint.y };

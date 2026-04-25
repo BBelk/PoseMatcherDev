@@ -1,4 +1,5 @@
 import { dbPut } from './db.js';
+import { dlogError } from './debug.js';
 
 export const comparisons = [];
 export let selectedCmpIndex = -1;
@@ -21,5 +22,5 @@ export async function saveCmpMeta(entry) {
       customPoint: entry.customPoint,
       selectedPerson: entry.selectedPerson,
     });
-  } catch (err) { console.error('Save cmp meta failed:', err); }
+  } catch (err) { dlogError('Save meta failed', err); }
 }

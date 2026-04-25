@@ -3,6 +3,7 @@ import { readExifDate } from './exif.js';
 import { comparisons, selectedCmpIndex, setSelectedCmpIndex, currentMode, saveCmpMeta } from './state.js';
 import { drawOverlayForCmp } from './draw.js';
 import { openPersonModal, openCustomPointModal, setModalCmpEntry } from './modal.js';
+import { dlogError } from './debug.js';
 
 const compareGrid = document.getElementById('compare-grid');
 const cmpFileInput = document.getElementById('cmp-file');
@@ -48,7 +49,7 @@ export async function ensureCmpPoses(entry) {
     entry.selectedPerson = 0;
     await saveCmpMeta(entry);
   } catch (err) {
-    console.error('Comparison pose failed:', err);
+    dlogError('Pose detection failed', err);
   }
 }
 
@@ -115,18 +116,14 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
     const hasPoses = entry.poses && entry.poses.length > 0;
     const useCustomModal = currentMode === 'custom' || !hasPoses;
 
-    console.log('Card click:', { currentMode, hasPoses, useCustomModal, posesCount: entry.poses?.length });
-
     setModalCmpEntry(entry);
     if (useCustomModal) {
-      console.log('Opening custom point modal');
       openCustomPointModal(img, entry.customPoint, (pt) => {
         entry.customPoint = pt;
         drawOverlayForCmp(entry);
         saveCmpMeta(entry);
       });
     } else {
-      console.log('Opening person modal');
       openPersonModal(img, entry.poses, entry.selectedPerson, (sel) => {
         entry.selectedPerson = sel;
         drawOverlayForCmp(entry);
@@ -226,7 +223,7 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
           entry.selectedPerson = 0;
           await saveCmpMeta(entry);
         } catch (err) {
-          console.error('Comparison pose failed:', err);
+          dlogError('Pose detection failed', err);
         }
       } else if (!restoredMeta) {
         await saveCmpMeta(entry);

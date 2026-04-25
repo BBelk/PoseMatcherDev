@@ -4,7 +4,7 @@ import { drawOverlayForCmp } from './draw.js';
 import { closeModal, isModalOpen, getModalCmpEntry } from './modal.js';
 import { setupComparisons, addComparison, removeComparison, ensureCmpPoses, setUpdateClearAllVisibility as setCmpClearAllCb, getComparisonOrder } from './comparisons.js';
 import { setupOutput, clearOutput } from './output.js';
-import { getDebugSessions, clearDebugLogs, formatLogsForCopy, dlog } from './debug.js';
+import { getDebugSessions, clearDebugLogs, formatLogsForCopy, dlog, dlogError } from './debug.js';
 
 const clearAllBtn = document.getElementById('clear-all-btn');
 const optionsDetails = document.getElementById('options-details');
@@ -76,9 +76,15 @@ function initSettings() {
     document.getElementById('scale-pair').value = 'shoulders';
     document.getElementById('rotate-toggle').checked = false;
     document.getElementById('rotate-pair').value = 'shoulders';
-    document.getElementById('output-width').value = '';
-    document.getElementById('output-height').value = '';
-    document.getElementById('output-format').value = 'gif';
+    const outputWidth = document.getElementById('output-width');
+    const outputHeight = document.getElementById('output-height');
+    const outputFormat = document.getElementById('output-format');
+    outputWidth.value = '';
+    outputWidth.placeholder = 'W';
+    outputHeight.value = '';
+    outputHeight.placeholder = 'H';
+    outputFormat.value = 'gif';
+    outputFormat.dispatchEvent(new Event('change'));
     document.getElementById('mp4-quality').value = '23';
     document.getElementById('mp4-quality-val').value = '23';
     document.getElementById('loop-toggle').checked = true;
@@ -104,6 +110,8 @@ function initSettings() {
     localStorage.removeItem('scalePair');
     localStorage.removeItem('rotateEnabled');
     localStorage.removeItem('rotatePair');
+    localStorage.removeItem('outputWidth');
+    localStorage.removeItem('outputHeight');
     localStorage.removeItem('outputFormat');
     localStorage.removeItem('mp4Quality');
     localStorage.removeItem('loop');
@@ -123,7 +131,6 @@ function initSettings() {
     const isHuman = modeHumanRadio.checked;
     humanPoseOptions.style.display = isHuman ? '' : 'none';
     detectionGroup.style.display = isHuman ? '' : 'none';
-    setTimeout(applyZebraStriping, 0);
   }
 
   function updateRedetectBtn() {
@@ -235,7 +242,7 @@ async function restore() {
       if (blob) await addComparison(blob, key, meta);
     }
   } catch (err) {
-    console.error('Restore failed:', err);
+    dlogError('Restore failed', err);
   }
 }
 
@@ -409,22 +416,6 @@ function setupMobileSteppers() {
   });
 }
 
-function applyZebraStriping() {
-  document.querySelectorAll('.opt-group').forEach(group => {
-    const rows = Array.from(group.querySelectorAll('.setting-compact, .setting-row-pair, .setting-row-triple'))
-      .filter(el => !el.closest('.setting-row-pair, .setting-row-triple') || el.classList.contains('setting-row-pair') || el.classList.contains('setting-row-triple'));
-    let visibleIndex = 0;
-    rows.forEach(row => {
-      row.classList.remove('zebra-alt');
-      const isVisible = row.offsetParent !== null && !row.closest('[style*="display: none"], [style*="display:none"]');
-      if (isVisible) {
-        row.classList.toggle('zebra-alt', visibleIndex % 2 === 1);
-        visibleIndex++;
-      }
-    });
-  });
-}
-
 function init() {
   setCmpClearAllCb(updateClearAllVisibility);
 
@@ -436,7 +427,6 @@ function init() {
   setupDebugPanel();
   setupThemeToggle();
   setupMobileSteppers();
-  applyZebraStriping();
 
   restore();
 

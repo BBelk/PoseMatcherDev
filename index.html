@@ -34,17 +34,19 @@
   </div>
 
   <section id="images-section">
-    <h2>1. Images <button id="clear-all-btn" style="display:none">Clear All</button></h2>
-    <p class="section-hint">First image = reference. Others align to it.</p>
-    <div id="compare-grid"></div>
-    <div id="compare-upload">
-      <div class="upload-prompt-cmp">
-        <label class="upload-label upload-label-lg" for="cmp-file">+ Add Images</label>
-        <p class="prompt-sub">Drop files or click to upload</p>
-        <p class="upload-warning">Adding many images at once may cause a delay while processing</p>
+    <details id="images-details" open>
+      <summary>1. Images <button id="clear-all-btn" style="display:none">Clear All</button></summary>
+      <p class="section-hint">First image = reference. Others align to it.</p>
+      <div id="compare-grid"></div>
+      <div id="compare-upload">
+        <div class="upload-prompt-cmp">
+          <label class="upload-label upload-label-lg" for="cmp-file">+ Add Images</label>
+          <p class="prompt-sub">Drop files or click to upload</p>
+          <p class="upload-warning">Adding many images at once may cause a delay while processing</p>
+        </div>
+        <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
       </div>
-      <input type="file" id="cmp-file" class="file-input" accept="image/*" multiple>
-    </div>
+    </details>
   </section>
 
   <div id="action-bar">
@@ -65,50 +67,49 @@
 
         <div class="opt-group" id="human-pose-options" style="display:none">
           <div class="opt-group-title">Pose Alignment</div>
-            <div class="setting-compact">
-              <label for="align-part">Position anchor</label>
-              <select id="align-part">
-                <option value="0" selected>Nose</option>
-                <option value="1">Left Eye</option>
-                <option value="2">Right Eye</option>
-                <option value="3">Left Ear</option>
-                <option value="4">Right Ear</option>
-                <option value="5">Left Shoulder</option>
-                <option value="6">Right Shoulder</option>
-                <option value="7">Left Elbow</option>
-                <option value="8">Right Elbow</option>
-                <option value="9">Left Wrist</option>
-                <option value="10">Right Wrist</option>
-                <option value="11">Left Hip</option>
-                <option value="12">Right Hip</option>
-                <option value="13">Left Knee</option>
-                <option value="14">Right Knee</option>
-                <option value="15">Left Ankle</option>
-                <option value="16">Right Ankle</option>
+          <div class="setting-compact">
+            <label for="align-part">Position anchor</label>
+            <select id="align-part">
+              <option value="0" selected>Nose</option>
+              <option value="1">Left Eye</option>
+              <option value="2">Right Eye</option>
+              <option value="3">Left Ear</option>
+              <option value="4">Right Ear</option>
+              <option value="5">Left Shoulder</option>
+              <option value="6">Right Shoulder</option>
+              <option value="7">Left Elbow</option>
+              <option value="8">Right Elbow</option>
+              <option value="9">Left Wrist</option>
+              <option value="10">Right Wrist</option>
+              <option value="11">Left Hip</option>
+              <option value="12">Right Hip</option>
+              <option value="13">Left Knee</option>
+              <option value="14">Right Knee</option>
+              <option value="15">Left Ankle</option>
+              <option value="16">Right Ankle</option>
+            </select>
+          </div>
+          <div class="setting-compact">
+            <label for="scale-toggle">Match scale</label>
+            <span class="inline-sub">
+              <input type="checkbox" id="scale-toggle">
+              <select id="scale-pair">
+                <option value="shoulders" selected>Shoulders</option>
+                <option value="hips">Hips</option>
+                <option value="eyes">Eyes</option>
               </select>
-            </div>
-            <div class="setting-compact">
-              <label for="scale-toggle">Match scale</label>
-              <span class="inline-sub">
-                <input type="checkbox" id="scale-toggle">
-                <select id="scale-pair">
-                  <option value="shoulders" selected>Shoulders</option>
-                  <option value="hips">Hips</option>
-                  <option value="eyes">Eyes</option>
-                </select>
-              </span>
-            </div>
-            <div class="setting-compact">
-              <label for="rotate-toggle">Match rotation</label>
-              <span class="inline-sub">
-                <input type="checkbox" id="rotate-toggle">
-                <select id="rotate-pair">
-                  <option value="shoulders" selected>Shoulders</option>
-                  <option value="hips">Hips</option>
-                  <option value="eyes">Eyes</option>
-                </select>
-              </span>
-            </div>
+            </span>
+          </div>
+          <div class="setting-compact">
+            <label for="rotate-toggle">Match rotation</label>
+            <span class="inline-sub">
+              <input type="checkbox" id="rotate-toggle">
+              <select id="rotate-pair">
+                <option value="shoulders" selected>Shoulders</option>
+                <option value="hips">Hips</option>
+                <option value="eyes">Eyes</option>
+              </select>
+            </span>
           </div>
         </div>
 
@@ -121,8 +122,9 @@
               <input type="number" id="output-height" min="1" max="9999" step="1" placeholder="H">
             </span>
           </div>
+          <p id="size-hint" class="setting-hint">Leave empty for recommended size (max 640px)</p>
           <div class="setting-compact">
-            <label for="output-format">Format</label>
+            <label for="output-format">Type</label>
             <select id="output-format">
               <option value="gif" selected>GIF</option>
               <option value="mp4">MP4</option>
@@ -131,7 +133,7 @@
             </select>
           </div>
           <div class="setting-compact" id="mp4-quality-row" style="display:none">
-            <label for="mp4-quality">CRF <span class="label-hint">(18=best, 35=smallest)</span></label>
+            <label for="mp4-quality">Quality <span class="label-hint">(18=best, 35=smallest)</span></label>
             <span class="inline-sub">
               <input type="range" id="mp4-quality" min="18" max="35" step="1" value="23">
               <input type="number" id="mp4-quality-val" min="18" max="35" step="1" value="23">
@@ -146,7 +148,7 @@
               </span>
             </div>
           </div>
-          <div class="setting-row-triple">
+          <div class="setting-row-pair">
             <div class="setting-compact">
               <label for="loop-toggle">Loop</label>
               <input type="checkbox" id="loop-toggle" checked>
@@ -155,6 +157,8 @@
               <label for="frame-counter-toggle">Counter</label>
               <input type="checkbox" id="frame-counter-toggle">
             </div>
+          </div>
+          <div id="gif-optimize-row">
             <div class="setting-compact">
               <label for="gif-diff-toggle">Optimize</label>
               <input type="checkbox" id="gif-diff-toggle" checked>
