@@ -296,7 +296,7 @@ function reorderComparison(srcEntry, targetEntry, insertAfter) {
 
 export function setupComparisons() {
   cmpFileInput.addEventListener('change', (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files).filter(f => f.type !== 'image/gif');
     cmpFileInput.value = '';
     setTimeout(() => addMultipleComparisons(files), 0);
   });
@@ -315,7 +315,7 @@ export function setupComparisons() {
     if (draggedEntry) return;
     e.preventDefault();
     imagesSection.classList.remove('dragover');
-    addMultipleComparisons(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+    addMultipleComparisons(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') && f.type !== 'image/gif'));
   });
 
   compareGrid.addEventListener('dragover', (e) => {
