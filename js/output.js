@@ -18,6 +18,7 @@ const outputVideo = document.getElementById('output-video');
 const outputFormatSelect = document.getElementById('output-format');
 const saveBtn = document.getElementById('save-btn');
 const outputSizeLabel = document.getElementById('output-size');
+const sectionHeader = document.querySelector('#output-section .section-header');
 const errorBanner = document.getElementById('error-banner');
 
 const loopToggle = document.getElementById('loop-toggle');
@@ -207,6 +208,7 @@ function resetOutput() {
   outputBox.classList.add('empty');
   outputBox.style.aspectRatio = '';
   saveBtn.style.display = 'none';
+  sectionHeader.classList.add('generate-only');
   lastOutputBlob = null;
 
   showProgress('Preparing...');
@@ -687,22 +689,25 @@ async function generate() {
   let w = parseInt(widthInput.value);
   let h = parseInt(heightInput.value);
 
+  const natW = ref.img.naturalWidth;
+  const natH = ref.img.naturalHeight;
+  const aspectRatio = natW / natH;
+
   if (!w && !h) {
     const maxSize = format === 'gif' ? 640 : 1080;
-    const natW = ref.img.naturalWidth;
-    const natH = ref.img.naturalHeight;
     if (natW >= natH) {
       w = Math.min(natW, maxSize);
-      h = Math.round(w * (natH / natW));
+      h = Math.round(w / aspectRatio);
     } else {
       h = Math.min(natH, maxSize);
-      w = Math.round(h * (natW / natH));
+      w = Math.round(h * aspectRatio);
     }
     widthInput.placeholder = w;
     heightInput.placeholder = h;
-  } else {
-    w = w || ref.img.naturalWidth;
-    h = h || ref.img.naturalHeight;
+  } else if (w && !h) {
+    h = Math.round(w / aspectRatio);
+  } else if (!w && h) {
+    w = Math.round(h * aspectRatio);
   }
   const loopGif = loopToggle.checked;
   const useTransitions = transitionToggle.checked;
@@ -759,6 +764,7 @@ async function generate() {
   overlayCanvas.style.display = 'none';
   clearError();
   saveBtn.style.display = '';
+  sectionHeader.classList.remove('generate-only');
 
   const sizeBytes = lastOutputBlob.size;
   const sizeText = sizeBytes >= 1024 * 1024
@@ -769,6 +775,8 @@ async function generate() {
 
   outputBox.classList.remove('empty');
   outputBox.style.aspectRatio = w + ' / ' + h;
+
+  outputBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 export function setupOutput() {
@@ -940,6 +948,7 @@ export function setupOutput() {
 export function clearOutput() {
   lastOutputBlob = null;
   saveBtn.style.display = 'none';
+  sectionHeader.classList.add('generate-only');
   outputSizeLabel.style.display = 'none';
   outputGif.style.display = 'none';
   outputGif.src = '';

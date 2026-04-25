@@ -130,7 +130,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 }
 
 #clear-all-btn {
-  margin-left: 0.5rem; padding: 0.2rem 0.5rem; border: 1px solid #733; border-radius: 4px;
+  margin-left: auto; padding: 0.2rem 0.5rem; border: 1px solid #733; border-radius: 4px;
   font-size: 0.65rem; color: #f99; background: #252525; cursor: pointer; vertical-align: middle;
 }
 #clear-all-btn:hover { background: #3a1a1a; border-color: #f55; }
@@ -363,6 +363,10 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 
 .section-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
 .section-header h2 { margin-bottom: 0; }
+@media (min-width: 641px) {
+  .section-header.generate-only h2 { flex: 1; }
+  .section-header.generate-only::after { content: ''; flex: 1; }
+}
 
 #save-btn {
   padding: 0.2rem 0.75rem; border: 1px solid #555; border-radius: 5px;
@@ -391,9 +395,9 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
   border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-box);
 }
 #images-details summary {
-  cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.8rem;
+  cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.85rem;
   color: var(--text-primary); user-select: none; list-style: none;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em; font-weight: 500; text-transform: uppercase;
   display: flex; align-items: center;
 }
 #images-details summary::before { content: '\25b8  '; }
@@ -407,9 +411,9 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 }
 
 #options-details summary {
-  cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.8rem;
+  cursor: pointer; padding: 0.5rem 0.75rem; font-size: 0.85rem;
   color: var(--text-primary); user-select: none; list-style: none;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em; font-weight: 500; text-transform: uppercase;
   display: flex; align-items: center;
 }
 #options-details summary::before { content: '\25b8  '; }
@@ -729,17 +733,17 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 
 .restore-btn {
   margin-left: auto;
-  padding: 0.15rem 0.5rem;
-  border: 1px solid var(--border-light);
+  padding: 0.2rem 0.5rem;
+  border: 1px solid #733;
   border-radius: 4px;
   font-size: 0.65rem;
-  color: var(--text-secondary);
-  background: var(--bg-button);
+  color: #f99;
+  background: #252525;
   cursor: pointer;
 }
 .restore-btn:hover {
-  background: var(--bg-button-hover);
-  color: var(--text-primary);
+  background: #3a1a1a;
+  border-color: #f55;
 }
 
 .redetect-btn {
@@ -1054,6 +1058,15 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
     background: #ffebe9;
     border-color: #cf222e;
   }
+  .restore-btn {
+    background: #fff;
+    border-color: #e5534b;
+    color: #cf222e;
+  }
+  .restore-btn:hover {
+    background: #ffebe9;
+    border-color: #cf222e;
+  }
 
   #error-banner {
     background: #ffebe9;
@@ -1131,6 +1144,15 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
   color: #cf222e;
 }
 :root[data-theme="light"] #clear-all-btn:hover {
+  background: #ffebe9;
+  border-color: #cf222e;
+}
+:root[data-theme="light"] .restore-btn {
+  background: #fff;
+  border-color: #e5534b;
+  color: #cf222e;
+}
+:root[data-theme="light"] .restore-btn:hover {
   background: #ffebe9;
   border-color: #cf222e;
 }
