@@ -359,6 +359,40 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
   100% { transform: translateX(400%); }
 }
 
+/* Model loading bar */
+.model-loading {
+  background: var(--bg-accent);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.model-loading-text {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.model-loading-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-input);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.model-loading-progress {
+  height: 100%;
+  width: 30%;
+  background: var(--accent);
+  border-radius: 3px;
+  animation: model-loading-pulse 1.2s ease-in-out infinite;
+}
+@keyframes model-loading-pulse {
+  0%, 100% { width: 30%; margin-left: 0; }
+  50% { width: 50%; margin-left: 25%; }
+}
+
 /* Section header with inline button */
 
 .section-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }

@@ -33,17 +33,25 @@ let _prepCtx = null;
 async function loadPoseModel() {
   if (poseSession) return poseSession;
 
+  const loadingEl = document.getElementById('pose-model-loading');
+  if (loadingEl) loadingEl.style.display = '';
+
   ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/';
   ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
   ort.env.wasm.simd = true;
 
-  poseSession = await ort.InferenceSession.create(POSE_CONFIG.modelPath, {
-    executionProviders: ['wasm'],
-  });
+  try {
+    poseSession = await ort.InferenceSession.create(POSE_CONFIG.modelPath, {
+      executionProviders: ['wasm'],
+    });
 
-  console.log('Pose model loaded');
-  console.log('  inputs:', poseSession.inputNames);
-  console.log('  outputs:', poseSession.outputNames);
+    console.log('Pose model loaded');
+    console.log('  inputs:', poseSession.inputNames);
+    console.log('  outputs:', poseSession.outputNames);
+  } finally {
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+
   return poseSession;
 }
 
