@@ -535,7 +535,8 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
   const qualityVal = parseInt(mp4QualitySlider.value) || 70;
   const crf = Math.round(35 - (qualityVal / 100) * 17);
   const qualityMultiplier = (51 - crf) / 33;
-  const bitrate = Math.round(w * h * 4 * qualityMultiplier);
+  const baseBitrate = Math.round(w * h * 4 * qualityMultiplier);
+  const bitrate = format === 'webm' ? Math.round(baseBitrate * 2.5) : baseBitrate;
 
   let outputFormat, mimeType;
   if (format === 'webm') {
@@ -966,14 +967,31 @@ export function setupOutput() {
   generateBtnDesktop.addEventListener('click', generate);
   generateBtnMobile.addEventListener('click', generate);
 
-  saveBtn.addEventListener('click', () => {
+  saveBtn.addEventListener('click', async () => {
     if (!lastOutputBlob) return;
     const extMap = { gif: 'gif', mp4: 'mp4', webm: 'webm', mov: 'mov' };
+    const mimeMap = { gif: 'image/gif', mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime' };
     const ext = extMap[lastOutputFormat] || lastOutputFormat;
+    const mime = mimeMap[lastOutputFormat] || 'application/octet-stream';
     const suffix = Math.random().toString(36).slice(2, 6);
+    const filename = `posematcher_${suffix}.${ext}`;
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && navigator.share && navigator.canShare) {
+      const file = new File([lastOutputBlob], filename, { type: mime });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+          return;
+        } catch (e) {
+          if (e.name === 'AbortError') return;
+        }
+      }
+    }
+
     const a = document.createElement('a');
     a.href = URL.createObjectURL(lastOutputBlob);
-    a.download = `posematcher_${suffix}.${ext}`;
+    a.download = filename;
     a.click();
   });
 }
