@@ -3,7 +3,7 @@ import { comparisons, currentMode, setCurrentMode, selectedCmpIndex } from './st
 import { drawOverlayForCmp } from './draw.js';
 import { closeModal, isModalOpen, getModalCmpEntry } from './modal.js';
 import { setupComparisons, addComparison, removeComparison, ensureCmpPoses, setUpdateClearAllVisibility as setCmpClearAllCb, getComparisonOrder } from './comparisons.js';
-import { setupOutput, clearOutput, resetSizeLock } from './output.js';
+import { setupOutput, clearOutput, resetSizeLock, resetCustomDurations } from './output.js';
 import { getDebugSessions, clearDebugLogs, formatLogsForCopy, dlog, dlogError } from './debug.js';
 
 const clearAllBtn = document.getElementById('clear-all-btn');
@@ -85,15 +85,17 @@ function initSettings() {
     outputHeight.placeholder = 'H';
     outputFormat.value = 'gif';
     outputFormat.dispatchEvent(new Event('change'));
-    document.getElementById('mp4-quality').value = '23';
-    document.getElementById('mp4-quality-val').value = '23';
+    document.getElementById('mp4-quality').value = '70';
+    document.getElementById('mp4-quality-val').value = '70';
+    document.getElementById('gif-lossy').value = '0';
+    document.getElementById('gif-lossy-val').value = '0';
+    document.getElementById('gif-diff-toggle').checked = true;
     document.getElementById('loop-toggle').checked = true;
     document.getElementById('frame-counter-toggle').checked = false;
     document.getElementById('frame-duration').value = '0.5';
     document.getElementById('first-frame-duration').value = '0.5';
     document.getElementById('middle-frame-duration').value = '0.5';
     document.getElementById('last-frame-duration').value = '0.5';
-    document.getElementById('transition-toggle').checked = false;
     document.getElementById('transition-type').value = 'fade';
     document.getElementById('transition-duration').value = '0.25';
     scoreThreshSlider.value = '0.3';
@@ -114,6 +116,8 @@ function initSettings() {
     localStorage.removeItem('outputHeight');
     localStorage.removeItem('outputFormat');
     localStorage.removeItem('mp4Quality');
+    localStorage.removeItem('gifLossy');
+    localStorage.removeItem('gifDiff');
     localStorage.removeItem('loop');
     localStorage.removeItem('frameCounter');
     localStorage.removeItem('frameDuration');
@@ -121,10 +125,17 @@ function initSettings() {
     localStorage.removeItem('middleFrameDuration');
     localStorage.removeItem('lastFrameDuration');
     localStorage.removeItem('customDurationsActive');
+    document.getElementById('custom-durations-toggle').checked = false;
+    document.getElementById('single-duration-row').style.display = '';
+    document.getElementById('custom-durations').style.display = 'none';
     localStorage.removeItem('transitionEnabled');
+    const transitionToggleEl = document.getElementById('transition-toggle');
+    transitionToggleEl.checked = false;
+    transitionToggleEl.dispatchEvent(new Event('change'));
     localStorage.removeItem('transitionType');
     localStorage.removeItem('transitionDuration');
     resetSizeLock();
+    resetCustomDurations();
     updateRedetectBtn();
   });
 

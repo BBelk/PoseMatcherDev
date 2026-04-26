@@ -25,8 +25,6 @@
     <button id="theme-toggle" aria-label="Toggle light/dark mode" title="Toggle light/dark mode"></button>
   </div>
 
-  <div id="error-banner" style="display:none"></div>
-
   <div id="info-panel">
     <p class="repo-link"><a href="https://github.com/BBelk/PoseMatcherDev" target="_blank" rel="noopener">View on GitHub</a></p>
     <p>Align and compare images by pose or custom anchor points. Export as GIF, MP4, or WebM.</p>
@@ -91,39 +89,39 @@
           </div>
           <div class="setting-compact">
             <label for="scale-toggle">Match scale</label>
-            <span class="inline-sub">
-              <input type="checkbox" id="scale-toggle">
+            <span class="inline-sub toggle-right">
               <select id="scale-pair">
                 <option value="shoulders" selected>Shoulders</option>
                 <option value="hips">Hips</option>
                 <option value="eyes">Eyes</option>
               </select>
+              <input type="checkbox" id="scale-toggle">
             </span>
           </div>
           <div class="setting-compact">
             <label for="rotate-toggle">Match rotation</label>
-            <span class="inline-sub">
-              <input type="checkbox" id="rotate-toggle">
+            <span class="inline-sub toggle-right">
               <select id="rotate-pair">
                 <option value="shoulders" selected>Shoulders</option>
                 <option value="hips">Hips</option>
                 <option value="eyes">Eyes</option>
               </select>
+              <input type="checkbox" id="rotate-toggle">
             </span>
           </div>
         </div>
 
         <div class="opt-group">
           <div class="opt-group-title">Format</div>
-          <div class="setting-compact">
+          <div class="setting-compact setting-size-row">
             <label>Size</label>
             <span class="dim-inputs">
               <input type="number" id="output-width" min="1" max="9999" step="1" placeholder="W"> x
               <input type="number" id="output-height" min="1" max="9999" step="1" placeholder="H">
             </span>
             <button type="button" id="size-lock-btn" class="lock-btn" title="Lock size">&#x1F513;</button>
+            <span id="size-hint" class="size-hint-inline">Auto-sized from first image</span>
           </div>
-          <p id="size-hint" class="setting-hint">Leave empty to auto-size from first image</p>
           <div class="setting-compact">
             <label for="output-format">Type</label>
             <select id="output-format">
@@ -134,18 +132,18 @@
             </select>
           </div>
           <div class="setting-compact" id="mp4-quality-row" style="display:none">
-            <label for="mp4-quality">Quality <span class="label-hint">(18=best, 35=smallest)</span></label>
+            <label for="mp4-quality">Quality <span class="label-hint">(0 = smaller, 100 = best quality/larger)</span></label>
             <span class="inline-sub">
-              <input type="range" id="mp4-quality" min="18" max="35" step="1" value="23">
-              <input type="number" id="mp4-quality-val" min="18" max="35" step="1" value="23">
+              <input type="range" id="mp4-quality" min="0" max="100" step="1" value="70">
+              <input type="number" id="mp4-quality-val" min="0" max="100" step="1" value="70">
             </span>
           </div>
           <div id="gif-options-row">
             <div class="setting-compact">
-              <label for="gif-lossy">Compression <span class="label-hint">(0=best, 30=smallest)</span></label>
+              <label for="gif-lossy">Compression <span class="label-hint">(0 = best quality/larger, 100 = smaller)</span></label>
               <span class="inline-sub">
-                <input type="range" id="gif-lossy" min="0" max="30" step="1" value="15">
-                <input type="number" id="gif-lossy-val" min="0" max="30" step="1" value="15">
+                <input type="range" id="gif-lossy" min="0" max="100" step="1" value="0">
+                <input type="number" id="gif-lossy-val" min="0" max="100" step="1" value="0">
               </span>
             </div>
           </div>
@@ -171,8 +169,11 @@
             <label for="frame-duration">Frame duration</label>
             <span class="inline-sub">
               <input type="number" id="frame-duration" min="0.1" max="10" step="0.1" value="0.5"> s
-              <label class="text-btn" id="custom-durations-toggle">customize</label>
             </span>
+          </div>
+          <div class="setting-compact">
+            <label for="custom-durations-toggle">Custom frame length</label>
+            <input type="checkbox" id="custom-durations-toggle">
           </div>
           <div id="custom-durations" style="display:none">
             <div class="setting-compact">
@@ -187,12 +188,10 @@
               <label for="last-frame-duration">Last</label>
               <span class="inline-sub"><input type="number" id="last-frame-duration" min="0.1" max="10" step="0.1" value="0.5"> s</span>
             </div>
-            <label class="text-btn" id="custom-durations-back">use single</label>
           </div>
           <div class="setting-compact">
             <label for="transition-toggle">Frame transitions</label>
-            <span class="inline-sub">
-              <input type="checkbox" id="transition-toggle">
+            <span class="inline-sub toggle-right">
               <select id="transition-type">
                 <option value="fade" selected>Fade</option>
                 <option value="wipe">Wipe</option>
@@ -200,6 +199,7 @@
                 <option value="flash">Flash</option>
                 <option value="blur">Blur</option>
               </select>
+              <input type="checkbox" id="transition-toggle">
             </span>
           </div>
           <div class="setting-compact" id="transition-duration-row" style="display:none">
@@ -238,6 +238,7 @@
       <button id="save-btn" style="display:none">Save Output</button>
       <span id="output-size" style="display:none"></span>
     </div>
+    <div id="error-banner" style="display:none"></div>
     <div id="output-box" class="pose-box empty">
       <div id="progress-container" class="progress-container idle">
         <div class="spinner"></div>

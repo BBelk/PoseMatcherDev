@@ -506,19 +506,23 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 .inline-sub input[type="checkbox"]:not(:checked) ~ select {
   display: none;
 }
+.toggle-right:has(input[type="checkbox"]:not(:checked)) select {
+  display: none;
+}
 
 /* Lock button */
 .lock-btn {
-  background: none;
-  border: none;
-  padding: 0.1rem 0.3rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
   font-size: 0.9rem;
   cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.15s;
+  opacity: 0.8;
+  transition: opacity 0.15s, background 0.15s;
 }
-.lock-btn:hover { opacity: 1; }
-.lock-btn.locked { opacity: 1; }
+.lock-btn:hover { opacity: 1; background: var(--bg-tertiary); }
+.lock-btn.locked { opacity: 1; background: var(--bg-tertiary); }
 
 /* Row of small toggles side by side */
 
@@ -535,7 +539,19 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 /* Dim inputs */
 
 .dim-inputs { display: flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: var(--text-primary); margin-left: auto; }
-.dim-inputs input { width: 46px; }
+.dim-inputs input { width: 58px; }
+
+/* Size hint inline */
+.size-hint-inline { font-size: 0.7rem; color: var(--text-muted); }
+.setting-size-row { flex-wrap: wrap; }
+.setting-size-row .dim-inputs { margin-left: auto; }
+.setting-size-row .lock-btn { margin-left: 0.25rem; }
+.setting-size-row .size-hint-inline {
+  order: 4;
+  flex: 1 1 100%;
+  text-align: right;
+  margin-top: 0.2rem;
+}
 
 /* Text button (customize / use single) */
 
@@ -842,6 +858,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
   .setting-compact select {
     padding: 8px 10px;
     font-size: 1rem;
+    margin-left: auto;
   }
   .setting-compact input[type="checkbox"] {
     width: 24px;
@@ -859,15 +876,47 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
     text-align: right;
   }
 
+  /* Size row: label + hint + lock on first line, inputs on second */
+  .setting-size-row > label {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+    order: 0;
+  }
+  .setting-size-row .size-hint-inline {
+    flex: 1;
+    text-align: right;
+    margin-left: 0.5rem;
+    margin-top: 0;
+    order: 1;
+  }
+  .setting-size-row .lock-btn {
+    order: 2;
+  }
+  .setting-size-row .dim-inputs {
+    flex: 1 1 100%;
+    margin-top: 0.35rem;
+    margin-left: 0;
+    justify-content: flex-end;
+    order: 3;
+  }
+
+  /* Checkbox on right for mobile */
+  .setting-compact > input[type="checkbox"] {
+    margin-left: auto;
+  }
+
   /* Toggle rows stay horizontal on mobile */
   .setting-row-pair, .setting-row-triple {
     flex-wrap: nowrap;
     padding: 0.5rem;
+    justify-content: space-around;
   }
   .setting-row-pair .setting-compact,
   .setting-row-triple .setting-compact {
+    flex: 0 0 auto;
     flex-wrap: nowrap;
     padding: 0;
+    gap: 0.3rem;
   }
   .setting-row-pair .setting-compact > label,
   .setting-row-triple .setting-compact > label {

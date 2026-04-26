@@ -378,7 +378,8 @@ async function generateGif(validCmps, w, h, loopGif, useTransitions, tType, tDur
   const { actualTDur = 0, transitionSteps = 0, stepDur = 0, totalFrames: totalEstimatedFrames = validCmps.length } = tParams || {};
   const stepDurMs = Math.round(stepDur * 1000);
 
-  const LOSSY_ROUND = parseInt(gifLossySlider.value) || 0;
+  const compressionVal = parseInt(gifLossySlider.value) || 0;
+  const LOSSY_ROUND = Math.round((compressionVal / 100) * 30);
   const USE_FRAME_DIFF = gifDiffToggle.checked;
 
   function encodeFrame(canvas, delayMs) {
@@ -531,7 +532,8 @@ async function generateVideo(validCmps, w, h, loopGif, useTransitions, tType, tD
   frameCanvas.width = w;
   frameCanvas.height = h;
 
-  const crf = parseInt(mp4QualitySlider.value) || 23;
+  const qualityVal = parseInt(mp4QualitySlider.value) || 70;
+  const crf = Math.round(35 - (qualityVal / 100) * 17);
   const qualityMultiplier = (51 - crf) / 33;
   const bitrate = Math.round(w * h * 4 * qualityMultiplier);
 
@@ -777,6 +779,7 @@ async function generate() {
 
   outputBox.classList.remove('empty');
   outputBox.style.aspectRatio = w + ' / ' + h;
+  outputBox.style.maxHeight = h + 'px';
 
   outputBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -794,7 +797,9 @@ export function setupOutput() {
   if (_savedWidth) outputWidthInput.value = _savedWidth;
   if (_savedHeight) outputHeightInput.value = _savedHeight;
   outputWidthInput.addEventListener('change', () => localStorage.setItem('outputWidth', outputWidthInput.value));
+  outputWidthInput.addEventListener('input', () => localStorage.setItem('outputWidth', outputWidthInput.value));
   outputHeightInput.addEventListener('change', () => localStorage.setItem('outputHeight', outputHeightInput.value));
+  outputHeightInput.addEventListener('input', () => localStorage.setItem('outputHeight', outputHeightInput.value));
 
   const sizeHint = document.getElementById('size-hint');
   function updateLockButton() {
@@ -842,7 +847,7 @@ export function setupOutput() {
     localStorage.setItem('mp4Quality', mp4QualitySlider.value);
   });
   mp4QualityVal.addEventListener('input', () => {
-    const val = Math.max(18, Math.min(35, parseInt(mp4QualityVal.value) || 23));
+    const val = Math.max(0, Math.min(100, parseInt(mp4QualityVal.value) || 70));
     mp4QualityVal.value = val;
     mp4QualitySlider.value = val;
     localStorage.setItem('mp4Quality', val);
@@ -858,7 +863,7 @@ export function setupOutput() {
     localStorage.setItem('gifLossy', gifLossySlider.value);
   });
   gifLossyVal.addEventListener('input', () => {
-    const val = Math.max(0, Math.min(30, parseInt(gifLossyVal.value) || 15));
+    const val = Math.max(0, Math.min(100, parseInt(gifLossyVal.value) || 0));
     gifLossyVal.value = val;
     gifLossySlider.value = val;
     localStorage.setItem('gifLossy', val);
@@ -894,24 +899,33 @@ export function setupOutput() {
     localStorage.setItem('frameDuration', frameDurationInput.value);
   });
   firstFrameDuration.addEventListener('change', () => localStorage.setItem('firstFrameDuration', firstFrameDuration.value));
+  firstFrameDuration.addEventListener('input', () => localStorage.setItem('firstFrameDuration', firstFrameDuration.value));
   middleFrameDuration.addEventListener('change', () => localStorage.setItem('middleFrameDuration', middleFrameDuration.value));
+  middleFrameDuration.addEventListener('input', () => localStorage.setItem('middleFrameDuration', middleFrameDuration.value));
   lastFrameDuration.addEventListener('change', () => localStorage.setItem('lastFrameDuration', lastFrameDuration.value));
+  lastFrameDuration.addEventListener('input', () => localStorage.setItem('lastFrameDuration', lastFrameDuration.value));
 
-  document.getElementById('custom-durations-toggle').addEventListener('click', () => {
-    customDurationsActive = true;
-    localStorage.setItem('customDurationsActive', 'true');
-    singleDurationRow.style.display = 'none';
-    customDurationsPanel.style.display = '';
-  });
-
-  document.getElementById('custom-durations-back').addEventListener('click', () => {
-    customDurationsActive = false;
-    localStorage.setItem('customDurationsActive', 'false');
-    customDurationsPanel.style.display = 'none';
-    singleDurationRow.style.display = '';
-    firstFrameDuration.value = frameDurationInput.value;
-    middleFrameDuration.value = frameDurationInput.value;
-    lastFrameDuration.value = frameDurationInput.value;
+  const customDurationsToggle = document.getElementById('custom-durations-toggle');
+  customDurationsToggle.checked = customDurationsActive;
+  customDurationsToggle.addEventListener('change', () => {
+    customDurationsActive = customDurationsToggle.checked;
+    localStorage.setItem('customDurationsActive', customDurationsActive);
+    if (customDurationsActive) {
+      singleDurationRow.style.display = 'none';
+      customDurationsPanel.style.display = '';
+      const savedFirst = localStorage.getItem('firstFrameDuration');
+      const savedMiddle = localStorage.getItem('middleFrameDuration');
+      const savedLast = localStorage.getItem('lastFrameDuration');
+      if (savedFirst) firstFrameDuration.value = savedFirst;
+      if (savedMiddle) middleFrameDuration.value = savedMiddle;
+      if (savedLast) lastFrameDuration.value = savedLast;
+    } else {
+      customDurationsPanel.style.display = 'none';
+      singleDurationRow.style.display = '';
+      firstFrameDuration.value = frameDurationInput.value;
+      middleFrameDuration.value = frameDurationInput.value;
+      lastFrameDuration.value = frameDurationInput.value;
+    }
   });
 
   if (localStorage.getItem('transitionEnabled') === 'true') transitionToggle.checked = true;
@@ -932,6 +946,7 @@ export function setupOutput() {
   });
   transitionTypeSelect.addEventListener('change', () => localStorage.setItem('transitionType', transitionTypeSelect.value));
   transitionDurationInput.addEventListener('change', () => localStorage.setItem('transitionDuration', transitionDurationInput.value));
+  transitionDurationInput.addEventListener('input', () => localStorage.setItem('transitionDuration', transitionDurationInput.value));
 
   const _savedAlignPart = localStorage.getItem('alignPart');
   if (_savedAlignPart) alignPartSelect.value = _savedAlignPart;
@@ -976,6 +991,7 @@ export function clearOutput() {
   clearError();
   outputBox.classList.add('empty');
   outputBox.style.aspectRatio = '';
+  outputBox.style.maxHeight = '';
   showIdle('Output will appear here');
 }
 
@@ -1012,4 +1028,9 @@ export function resetSizeLock() {
   sizeLockBtn.textContent = '\u{1F513}';
   sizeLockBtn.classList.remove('locked');
   sizeLockBtn.title = 'Lock size';
+  document.getElementById('size-hint').textContent = 'Auto-sized from first image';
+}
+
+export function resetCustomDurations() {
+  customDurationsActive = false;
 }
