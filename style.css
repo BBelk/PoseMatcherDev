@@ -496,6 +496,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 .inline-sub {
   display: flex; align-items: center; gap: 0.35rem;
   font-size: 0.78rem; color: var(--text-primary); font-variant-numeric: tabular-nums;
+  margin-left: auto;
 }
 .inline-sub span {
   min-width: 2em; text-align: right; color: var(--text-primary);
@@ -505,6 +506,19 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 .inline-sub input[type="checkbox"]:not(:checked) ~ select {
   display: none;
 }
+
+/* Lock button */
+.lock-btn {
+  background: none;
+  border: none;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.lock-btn:hover { opacity: 1; }
+.lock-btn.locked { opacity: 1; }
 
 /* Row of small toggles side by side */
 
@@ -520,7 +534,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 
 /* Dim inputs */
 
-.dim-inputs { display: flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: var(--text-primary); }
+.dim-inputs { display: flex; align-items: center; gap: 0.25rem; font-size: 0.78rem; color: var(--text-primary); margin-left: auto; }
 .dim-inputs input { width: 46px; }
 
 /* Text button (customize / use single) */
@@ -747,8 +761,10 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
 }
 
 .redetect-btn {
-  width: 100%;
+  width: 150px;
   margin-top: 0.4rem;
+  margin-left: auto;
+  display: block;
   padding: 0.3rem 0.6rem;
   border: 1px solid var(--border-light);
   border-radius: 5px;
@@ -840,7 +856,7 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
     justify-content: flex-end;
   }
   .setting-hint {
-    text-align: left;
+    text-align: right;
   }
 
   /* Toggle rows stay horizontal on mobile */

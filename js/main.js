@@ -3,7 +3,7 @@ import { comparisons, currentMode, setCurrentMode, selectedCmpIndex } from './st
 import { drawOverlayForCmp } from './draw.js';
 import { closeModal, isModalOpen, getModalCmpEntry } from './modal.js';
 import { setupComparisons, addComparison, removeComparison, ensureCmpPoses, setUpdateClearAllVisibility as setCmpClearAllCb, getComparisonOrder } from './comparisons.js';
-import { setupOutput, clearOutput } from './output.js';
+import { setupOutput, clearOutput, resetSizeLock } from './output.js';
 import { getDebugSessions, clearDebugLogs, formatLogsForCopy, dlog, dlogError } from './debug.js';
 
 const clearAllBtn = document.getElementById('clear-all-btn');
@@ -124,6 +124,7 @@ function initSettings() {
     localStorage.removeItem('transitionEnabled');
     localStorage.removeItem('transitionType');
     localStorage.removeItem('transitionDuration');
+    resetSizeLock();
     updateRedetectBtn();
   });
 

@@ -25,6 +25,7 @@ const loopToggle = document.getElementById('loop-toggle');
 const frameCounterToggle = document.getElementById('frame-counter-toggle');
 const outputWidthInput = document.getElementById('output-width');
 const outputHeightInput = document.getElementById('output-height');
+const sizeLockBtn = document.getElementById('size-lock-btn');
 const gifOptionsRow = document.getElementById('gif-options-row');
 const gifLossySlider = document.getElementById('gif-lossy');
 const gifLossyVal = document.getElementById('gif-lossy-val');
@@ -50,6 +51,7 @@ const mp4QualityVal = document.getElementById('mp4-quality-val');
 let lastOutputBlob = null;
 let lastOutputFormat = 'gif';
 let customDurationsActive = localStorage.getItem('customDurationsActive') === 'true';
+let sizeLocked = localStorage.getItem('sizeLocked') === 'true';
 let isGenerating = false;
 let abortGeneration = false;
 
@@ -794,8 +796,27 @@ export function setupOutput() {
   outputWidthInput.addEventListener('change', () => localStorage.setItem('outputWidth', outputWidthInput.value));
   outputHeightInput.addEventListener('change', () => localStorage.setItem('outputHeight', outputHeightInput.value));
 
-  const gifOptimizeRow = document.getElementById('gif-optimize-row');
   const sizeHint = document.getElementById('size-hint');
+  function updateLockButton() {
+    sizeLockBtn.textContent = sizeLocked ? '\u{1F512}' : '\u{1F513}';
+    sizeLockBtn.classList.toggle('locked', sizeLocked);
+    sizeLockBtn.title = sizeLocked ? 'Unlock size' : 'Lock size';
+    sizeHint.textContent = sizeLocked ? 'Size locked' : 'Auto-sized from first image';
+  }
+  updateLockButton();
+
+  sizeLockBtn.addEventListener('click', () => {
+    if (!sizeLocked) {
+      const w = outputWidthInput.value.trim();
+      const h = outputHeightInput.value.trim();
+      if (!w && !h) return;
+    }
+    sizeLocked = !sizeLocked;
+    localStorage.setItem('sizeLocked', sizeLocked);
+    updateLockButton();
+  });
+
+  const gifOptimizeRow = document.getElementById('gif-optimize-row');
   function updateFormatOptionsVisibility() {
     const format = outputFormatSelect.value;
     const isVideo = ['mp4', 'webm', 'mov'].includes(format);
@@ -803,9 +824,6 @@ export function setupOutput() {
     mp4QualityRow.style.display = isVideo ? '' : 'none';
     gifOptionsRow.style.display = isGif ? '' : 'none';
     gifOptimizeRow.style.display = isGif ? '' : 'none';
-    sizeHint.textContent = isGif
-      ? 'Leave empty for recommended size (max 640px)'
-      : 'Leave empty for recommended size (max 1080px)';
   }
   updateFormatOptionsVisibility();
 
@@ -959,4 +977,39 @@ export function clearOutput() {
   outputBox.classList.add('empty');
   outputBox.style.aspectRatio = '';
   showIdle('Output will appear here');
+}
+
+export function updateOutputSize(refImg) {
+  if (sizeLocked) return;
+  if (!refImg) return;
+
+  const natW = refImg.naturalWidth;
+  const natH = refImg.naturalHeight;
+  if (!natW || !natH) return;
+
+  const format = outputFormatSelect.value;
+  const maxSize = format === 'gif' ? 640 : 1080;
+  const aspectRatio = natW / natH;
+
+  let w, h;
+  if (natW >= natH) {
+    w = Math.min(natW, maxSize);
+    h = Math.round(w / aspectRatio);
+  } else {
+    h = Math.min(natH, maxSize);
+    w = Math.round(h * aspectRatio);
+  }
+
+  outputWidthInput.value = w;
+  outputHeightInput.value = h;
+  localStorage.setItem('outputWidth', w);
+  localStorage.setItem('outputHeight', h);
+}
+
+export function resetSizeLock() {
+  sizeLocked = false;
+  localStorage.removeItem('sizeLocked');
+  sizeLockBtn.textContent = '\u{1F513}';
+  sizeLockBtn.classList.remove('locked');
+  sizeLockBtn.title = 'Lock size';
 }

@@ -4,6 +4,7 @@ import { comparisons, selectedCmpIndex, setSelectedCmpIndex, currentMode, saveCm
 import { drawOverlayForCmp } from './draw.js';
 import { openPersonModal, openCustomPointModal, setModalCmpEntry } from './modal.js';
 import { dlogError } from './debug.js';
+import { updateOutputSize } from './output.js';
 
 const compareGrid = document.getElementById('compare-grid');
 const cmpFileInput = document.getElementById('cmp-file');
@@ -232,6 +233,7 @@ export async function addComparison(fileOrBlob, dbKey, restoredMeta) {
       updateClearAllVisibility();
       updateCardNumbers();
       saveComparisonOrder();
+      if (comparisons[0] === entry) updateOutputSize(img);
       resolve();
     };
     img.onerror = resolve;
@@ -255,10 +257,12 @@ export function removeComparison(index) {
   entry.card.remove();
   dbDelete(entry.dbKey);
   dbDelete(entry.dbKey + '_meta');
+  const wasFirst = index === 0;
   comparisons.splice(index, 1);
   updateClearAllVisibility();
   updateCardNumbers();
   saveComparisonOrder();
+  if (wasFirst && comparisons[0]) updateOutputSize(comparisons[0].img);
   if (wasSelected) {
     setSelectedCmpIndex(-1);
     if (comparisons.length > 0) {
@@ -292,6 +296,7 @@ function reorderComparison(srcEntry, targetEntry, insertAfter) {
   }
   updateCardNumbers();
   saveComparisonOrder();
+  if (comparisons[0]) updateOutputSize(comparisons[0].img);
 }
 
 export function setupComparisons() {

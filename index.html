@@ -121,8 +121,9 @@
               <input type="number" id="output-width" min="1" max="9999" step="1" placeholder="W"> x
               <input type="number" id="output-height" min="1" max="9999" step="1" placeholder="H">
             </span>
+            <button type="button" id="size-lock-btn" class="lock-btn" title="Lock size">&#x1F513;</button>
           </div>
-          <p id="size-hint" class="setting-hint">Leave empty for recommended size (max 640px)</p>
+          <p id="size-hint" class="setting-hint">Leave empty to auto-size from first image</p>
           <div class="setting-compact">
             <label for="output-format">Type</label>
             <select id="output-format">
@@ -148,7 +149,7 @@
               </span>
             </div>
           </div>
-          <div class="setting-row-pair">
+          <div class="setting-row-triple">
             <div class="setting-compact">
               <label for="loop-toggle">Loop</label>
               <input type="checkbox" id="loop-toggle" checked>
@@ -157,9 +158,7 @@
               <label for="frame-counter-toggle">Counter</label>
               <input type="checkbox" id="frame-counter-toggle">
             </div>
-          </div>
-          <div id="gif-optimize-row">
-            <div class="setting-compact">
+            <div class="setting-compact" id="gif-optimize-row">
               <label for="gif-diff-toggle">Optimize</label>
               <input type="checkbox" id="gif-diff-toggle" checked>
             </div>
