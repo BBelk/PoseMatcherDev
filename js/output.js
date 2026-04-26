@@ -848,7 +848,7 @@ export function setupOutput() {
     localStorage.setItem('mp4Quality', mp4QualitySlider.value);
   });
   mp4QualityVal.addEventListener('input', () => {
-    const val = Math.max(0, Math.min(100, parseInt(mp4QualityVal.value) || 70));
+    const val = Math.max(0, Math.min(100, parseInt(mp4QualityVal.value) || 100));
     mp4QualityVal.value = val;
     mp4QualitySlider.value = val;
     localStorage.setItem('mp4Quality', val);

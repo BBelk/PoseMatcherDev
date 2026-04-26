@@ -25,13 +25,34 @@ const LEFT_INDICES  = new Set([1, 3, 5, 7, 9, 11, 13, 15]);
 const RIGHT_INDICES = new Set([2, 4, 6, 8, 10, 12, 14, 16]);
 
 let poseSession = null;
+let poseModelLoading = null;
 let _prepCanvas = null;
 let _prepCtx = null;
+
+// --- Model preloading (starts when browser is idle) ---
+
+function preloadPoseModel() {
+  if (poseSession || poseModelLoading) return;
+  const modeHuman = document.getElementById('mode-human');
+  if (!modeHuman || !modeHuman.checked) return;
+
+  poseModelLoading = loadPoseModel().catch(err => {
+    console.warn('Pose model preload failed:', err);
+    poseModelLoading = null;
+  });
+}
+
+if ('requestIdleCallback' in window) {
+  requestIdleCallback(() => preloadPoseModel(), { timeout: 3000 });
+} else {
+  setTimeout(preloadPoseModel, 1000);
+}
 
 // --- Model loading ---
 
 async function loadPoseModel() {
   if (poseSession) return poseSession;
+  if (poseModelLoading) return poseModelLoading;
 
   const loadingEl = document.getElementById('pose-model-loading');
   if (loadingEl) loadingEl.style.display = '';
@@ -40,19 +61,23 @@ async function loadPoseModel() {
   ort.env.wasm.numThreads = navigator.hardwareConcurrency || 4;
   ort.env.wasm.simd = true;
 
-  try {
-    poseSession = await ort.InferenceSession.create(POSE_CONFIG.modelPath, {
-      executionProviders: ['wasm'],
-    });
+  poseModelLoading = (async () => {
+    try {
+      poseSession = await ort.InferenceSession.create(POSE_CONFIG.modelPath, {
+        executionProviders: ['wasm'],
+      });
 
-    console.log('Pose model loaded');
-    console.log('  inputs:', poseSession.inputNames);
-    console.log('  outputs:', poseSession.outputNames);
-  } finally {
-    if (loadingEl) loadingEl.style.display = 'none';
-  }
+      console.log('Pose model loaded');
+      console.log('  inputs:', poseSession.inputNames);
+      console.log('  outputs:', poseSession.outputNames);
+      return poseSession;
+    } finally {
+      if (loadingEl) loadingEl.style.display = 'none';
+      poseModelLoading = null;
+    }
+  })();
 
-  return poseSession;
+  return poseModelLoading;
 }
 
 // --- Preprocessing (RTMO: top-left letterbox, pad 114, raw 0-255 float32) ---

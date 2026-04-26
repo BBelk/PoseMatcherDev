@@ -85,8 +85,8 @@ function initSettings() {
     outputHeight.placeholder = 'H';
     outputFormat.value = 'gif';
     outputFormat.dispatchEvent(new Event('change'));
-    document.getElementById('mp4-quality').value = '70';
-    document.getElementById('mp4-quality-val').value = '70';
+    document.getElementById('mp4-quality').value = '100';
+    document.getElementById('mp4-quality-val').value = '100';
     document.getElementById('gif-lossy').value = '0';
     document.getElementById('gif-lossy-val').value = '0';
     document.getElementById('gif-diff-toggle').checked = true;
@@ -143,6 +143,8 @@ function initSettings() {
     const isHuman = modeHumanRadio.checked;
     humanPoseOptions.style.display = isHuman ? '' : 'none';
     detectionGroup.style.display = isHuman ? '' : 'none';
+    const customPointHint = document.getElementById('custom-point-hint');
+    if (customPointHint) customPointHint.style.display = isHuman ? 'none' : '';
   }
 
   function updateRedetectBtn() {

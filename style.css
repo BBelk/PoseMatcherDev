@@ -793,6 +793,13 @@ h2 { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--t
   text-align: center;
 }
 
+.upload-hint {
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-top: 0.4rem;
+  text-align: center;
+}
+
 /* --- Restore defaults button --- */
 
 .restore-btn {

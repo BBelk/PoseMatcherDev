@@ -45,6 +45,7 @@
           <label class="upload-label upload-label-lg" for="cmp-file">+ Add Images</label>
           <p class="prompt-sub">Drop files or click to upload</p>
           <p class="upload-warning">Adding many images at once may cause a delay while processing</p>
+          <p id="custom-point-hint" class="upload-hint" style="display:none">Select a photo to customize keypoint location</p>
         </div>
         <input type="file" id="cmp-file" class="file-input" accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff" multiple>
       </div>
@@ -138,8 +139,8 @@
           <div class="setting-compact" id="mp4-quality-row" style="display:none">
             <label for="mp4-quality">Quality <span class="label-hint">(0 = smaller, 100 = best quality/larger)</span></label>
             <span class="inline-sub">
-              <input type="range" id="mp4-quality" min="0" max="100" step="1" value="70">
-              <input type="number" id="mp4-quality-val" min="0" max="100" step="1" value="70">
+              <input type="range" id="mp4-quality" min="0" max="100" step="1" value="100">
+              <input type="number" id="mp4-quality-val" min="0" max="100" step="1" value="100">
             </span>
           </div>
           <div id="gif-options-row">
